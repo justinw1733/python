@@ -1,0 +1,207 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Python Files Repository</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 20px;
+            background-color: #f5f5f5;
+        }
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            background-color: white;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        h1 {
+            color: #333;
+            border-bottom: 2px solid #4CAF50;
+            padding-bottom: 10px;
+        }
+        .directory-list {
+            list-style-type: none;
+            padding: 0;
+        }
+        .directory-item, .file-item {
+            padding: 10px;
+            margin: 5px 0;
+            background-color: #f9f9f9;
+            border-left: 4px solid #4CAF50;
+            border-radius: 4px;
+        }
+        .file-item {
+            border-left: 4px solid #2196F3;
+        }
+        .item-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        .item-name {
+            font-weight: bold;
+            font-size: 1.1em;
+        }
+        .item-links a {
+            margin-left: 15px;
+            text-decoration: none;
+            color: #4CAF50;
+            font-weight: bold;
+        }
+        .item-links a:hover {
+            text-decoration: underline;
+        }
+        .download-link {
+            color: #2196F3 !important;
+        }
+        .description {
+            margin-top: 10px;
+            padding: 10px;
+            background-color: #eef7ff;
+            border-radius: 4px;
+            display: none;
+        }
+        .description.show {
+            display: block;
+        }
+        .toggle-description {
+            background: none;
+            border: none;
+            color: #4CAF50;
+            cursor: pointer;
+            font-size: 0.9em;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Python Files Repository</h1>
+        <ul class="directory-list" id="fileList">
+            <!-- Directory and file entries will be generated here -->
+        </ul>
+    </div>
+
+    <script>
+        // Sample data structure - in a real implementation, this would come from server-side code
+        const fileStructure = {
+            "python": {
+                "type": "directory",
+                "children": {
+                    "algorithms": {
+                        "type": "directory",
+                        "children": {
+                            "sorting.py": {
+                                "type": "file",
+                                "description": "Implementation of various sorting algorithms including quicksort, mergesort, and heapsort with performance comparisons.",
+                                "size": "5.2 KB"
+                            },
+                            "search.py": {
+                                "type": "file",
+                                "description": "Search algorithms implementation: binary search, depth-first search, and breadth-first search.",
+                                "size": "3.8 KB"
+                            }
+                        }
+                    },
+                    "data_processing": {
+                        "type": "directory",
+                        "children": {
+                            "csv_parser.py": {
+                                "type": "file",
+                                "description": "Utility for parsing and processing large CSV files with memory-efficient techniques.",
+                                "size": "7.1 KB"
+                            },
+                            "json_handler.py": {
+                                "type": "file",
+                                "description": "Advanced JSON processing module with support for custom data types and validation.",
+                                "size": "4.5 KB"
+                            }
+                        }
+                    },
+                    "utils.py": {
+                        "type": "file",
+                        "description": "Collection of utility functions commonly used across projects including string manipulation, file operations, and date formatting.",
+                        "size": "2.3 KB"
+                    },
+                    "main.py": {
+                        "type": "file",
+                        "description": "Main application entry point that initializes the system and coordinates between different modules.",
+                        "size": "1.7 KB"
+                    }
+                }
+            }
+        };
+
+        function generateFileList(structure, parentElement, path = '') {
+            for (const [name, item] of Object.entries(structure)) {
+                const listItem = document.createElement('li');
+                listItem.className = item.type === 'directory' ? 'directory-item' : 'file-item';
+                
+                const itemHeader = document.createElement('div');
+                itemHeader.className = 'item-header';
+                
+                const itemName = document.createElement('span');
+                itemName.className = 'item-name';
+                itemName.textContent = name;
+                
+                const itemLinks = document.createElement('div');
+                itemLinks.className = 'item-links';
+                
+                if (item.type === 'file') {
+                    // View description button
+                    const descButton = document.createElement('button');
+                    descButton.className = 'toggle-description';
+                    descButton.textContent = 'View Description';
+                    descButton.onclick = function() {
+                        const desc = this.parentElement.parentElement.nextElementSibling;
+                        desc.classList.toggle('show');
+                        this.textContent = desc.classList.contains('show') ? 'Hide Description' : 'View Description';
+                    };
+                    
+                    // Download link
+                    const downloadLink = document.createElement('a');
+                    downloadLink.className = 'download-link';
+                    downloadLink.href = `${path}/${name}`;
+                    downloadLink.textContent = 'Download';
+                    downloadLink.download = name;
+                    
+                    itemLinks.appendChild(descButton);
+                    itemLinks.appendChild(downloadLink);
+                }
+                
+                itemHeader.appendChild(itemName);
+                itemHeader.appendChild(itemLinks);
+                listItem.appendChild(itemHeader);
+                
+                if (item.type === 'file') {
+                    // Description element
+                    const description = document.createElement('div');
+                    description.className = 'description';
+                    description.innerHTML = `
+                        <p><strong>Description:</strong> ${item.description}</p>
+                        <p><strong>File size:</strong> ${item.size}</p>
+                    `;
+                    listItem.appendChild(description);
+                } else if (item.type === 'directory' && item.children) {
+                    // For directories, create a sublist
+                    const subList = document.createElement('ul');
+                    subList.className = 'directory-list';
+                    generateFileList(item.children, subList, `${path}/${name}`);
+                    listItem.appendChild(subList);
+                }
+                
+                parentElement.appendChild(listItem);
+            }
+        }
+
+        // Initialize the file list
+        document.addEventListener('DOMContentLoaded', function() {
+            const fileList = document.getElementById('fileList');
+            generateFileList(fileStructure, fileList);
+        });
+    </script>
+</body>
+</html>

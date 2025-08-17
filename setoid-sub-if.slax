@@ -1,0 +1,157 @@
+/*
+version 1.0
+copy this slax file to /var/db/scripts/event (both RE)
+check the result command is "show snmp mib walk ascii jnxUtil"
+router#show event-options
+event-options {
+generate-event {
+  5-mins time-interval 300;
+}
+policy set-oids {
+  events 5-mins;
+  then {
+    event-script setoid-sub-if.slax;
+  }
+}
+}
+
+*Debug Value:
+*expr jcs:output( );
+"Total:" _ $total-count;
+*/
+/* slax version, not script version */
+version 1.1;
+
+ns junos = "http://xml.juniper.net/junos/*/junos";
+ns xnm = "http://xml.juniper.net/xnm/1.1/xnm";
+ns jcs = "http://xml.juniper.net/junos/commit-scripts/1.0";
+ns func extension = "http://exslt.org/functions";
+ns jutils = "http://jutils/";
+ns str = "http://exslt.org/strings";
+ns set = "http://exslt.org/sets";
+
+import "../import/junos.xsl";
+
+var $connection = jcs:open();
+
+template check_pid {                                <<<<<< The check pid function 
+    var $running_pid = jutils:running( $connection, $script );
+    if ( $running_pid ) {
+         "terminate script because another instance with pid " _ $running_pid _ " is still running";
+    }
+}
+
+function jutils:running( $connection, $script ) {
+    /* function to check if another instance of this script is still running
+     *
+     * :param connection: connection handle
+     * :param script: name used to identify the script
+     * :return: pid of running instance or false
+     */
+    mvar $running = false();
+
+    var $pid =  $junos-context/pid;
+    var $pid_filename = "/mfs/var/tmp/" _ $script _ ".pid";
+    var $pid_file = document( $pid_filename );
+
+    if ( not( jcs:empty( $pid_file//pid ) ) ) {
+        var $processes_rpc = { "show system processes extensive"; }
+        var $processes = jcs:execute( $connection, $processes_rpc );
+        var $processes_lines = jcs:break-lines( $processes );
+
+        for-each( $processes_lines ) {
+            if ( jcs:regex( "^[[:blank:][:space:]]*" _ $pid_file//pid _ "[[:blank:][:space:]]+.*cscript.*", . )[1] ) {
+                set $running = true();
+            }
+        }
+    }
+    if ( $running ) {
+        result $pid_file//pid;
+    } else {
+         {
+            copy-of $pid;
+        }
+        result false();
+    }
+}
+
+template snmp_set($instance, $value = "0", $type = "string" ) {
+    var $set_rpc =  {
+        $type;
+        $value;
+        $instance;
+    }
+    var $out = jcs:invoke($set_rpc);
+}
+
+template clear-instance-regex() {
+    /* First walk the MIB and gather all instances */
+    var $walk-rpc = {
+         {
+             "jnxUtil";
+            ;
+        }
+    }
+    var $mib-objects = jcs:invoke( $walk-rpc );
+
+    /* Clear all instances values */
+    for-each( $mib-objects/snmp-object ) {
+        /* Display the name */    
+        var $type = ./object-value-type;
+        var $instance = substring-after( ./name , "." );
+        /* Only remove if it has a valid type */
+        if( string-length( $type ) == 12 ) {
+            /* Build RPC and invoke it */
+            var $rpc-clear = {
+                 {
+                     $instance;
+                     substring-after( $type , "ASCII " );
+                }
+            }
+            var $results = jcs:invoke( $rpc-clear );
+        }
+    }
+} 
+
+match / {
+{
+        call check_pid; 
+
+        call clear-instance-regex();
+
+        var $get_subscribers_port_summary_rpc =  {
+            ;
+        }
+        var $show-sub-sum-port-results = jcs:execute($connection, $get_subscribers_port_summary_rpc);  
+
+        mvar $interface-name = 0;
+        mvar $total-sub-count = 0;
+        mvar $total-count = 0;
+
+        for-each($show-sub-sum-port-results/counters) {
+            if(position() = last()){
+                set $total-count = ./port-total;  
+                call snmp_set($instance="Total" , $value="total-count:" _ $total-count , $type="string"); 
+
+            }
+            else if(position() mod 3 == 1 ){
+                set $interface-name = ./port-name;
+                set $total-sub-count = ./port-count;
+                if( starts-with( $interface-name , 'ae' ) ){
+                    set $interface-name = substring-before($interface-name,":");        
+                }
+            }
+            else if(position() mod 3 == 2 ){
+                mvar $session-type-dhcp = 0;
+                mvar $session-type-pppoe = 0;
+                if(./session-type-dhcp) {
+                    set $session-type-dhcp = ./session-type-dhcp;    
+                }
+                if(./session-type-pppoe) {
+                    set $session-type-pppoe = ./session-type-pppoe;     
+                }                
+                call snmp_set($instance=$interface-name , $value="portname:" _ $interface-name _ " " _ "port-sub-count:" _ $total-sub-count _ " " _ "dhcp-count:" _ $session-type-dhcp _" " _ "pppoe-count:" _ $session-type-pppoe , $type="string");
+            }
+        }   
+    }
+}

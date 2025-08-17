@@ -1,0 +1,19 @@
+---
+name: new_topology
+devices:
+  - type: vmx
+    name: mx1
+    img: "/vmm/data/base_disks/default_images/default_image_vmx_phase3.img"
+    re: 2
+    fpcs:
+      - name: fpc1
+        links:
+          - ptx2
+  - type: vqfx
+    img: "/vmm/data/base_disks/default_images/default_image_vscapa.img"
+    name: qfx1
+    re: 2
+    fpcs:
+      - name: fpc1
+        links:
+          - mx1

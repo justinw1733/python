@@ -1,0 +1,215 @@
+{% if 'vmx' in types or 'vscapa' in types or 'vbrackla' in types or 'vardberg' in types %}
+#include "/vmm/bin/common.defs"
+#include "/vmm/data/user_disks/vmxc/common.vmx.p3.defs"
+{% endif %}
+{% if 'vscapa' in types %}
+#include "/vmm/data/user_disks/vptxc/common.evovscapa.defs"
+{% endif %}
+{% if 'vbrackla' in types %}
+#include "/vmm/data/user_disks/vptxc/common.brackla.defs"
+#include "/vmm/data/user_disks/vptxc/common.evovptx.defs"
+#define VMM_ENV_CSPP_CFG_DIR  /vmm/data/user_disks/evo_test/EVOvBRACKLA/COSIMPP/
+{% endif %}
+{% if 'vardberg' in types %}
+#include "/vmm/data/user_disks/vptxc/common.evovptx.ardbeg.defs"
+#include "/vmm/data/user_disks/vptxc/common.ardbeg.defs"
+{% endif %}
+{% if 'vscapa' in types or 'vardberg' in types %}
+#define VMM_ENV_CSPP_CFG_DIR /vmm/data/user_disks/evo_test/EVOvSCAPA/
+{% endif %}
+{% if 'vbrackla' in types or 'vscapa' in types or 'vardberg' in types %}
+#define EVOVPTX_FPC_CSPP_IMG "/vmm/data/base_disks/junos/vevo/ubuntu_vm_evo.qcow2"
+{% endif %}
+{% for disk_name, disk_items in disks.items() %}
+{% if disk_items[1] == 'vmx' or disk_items[1] == 'vserver' or disk_items[1] == 'vsrx' or disk_items[1] == 'vqfx'%}
+#define  {{ disk_name }}_DISK  basedisk "{{ disk_items[0] }}";
+{% else %}
+#define  {{ disk_name }}_DISK  "{{ disk_items[0] }}"
+{% endif %}
+{% endfor %}
+{% if 'vqfx' in types%}
+#define COSIM_DISK basedisk "/vmm/data/base_disks/default_images/default_image_vqfx10_mpc.img";
+{% endif %}
+TOPOLOGY_START({{ name }})
+{% for device in devices %}
+{% if device.type == 'vmx' %}
+#undef  VMX_CHASSIS_I2CID
+#undef  VMX_CHASSIS_NAME
+#define VMX_CHASSIS_I2CID       21
+#define VMX_CHASSIS_NAME        {{ device.name }}
+VMX_CHASSIS_START()
+    VMX_RE_START({{ device.name }}_RE, 0)
+        VMX_RE_INSTANCE({{ device.name }}_RE, {{ device.name }}_DISK, VMX_RE_I2CID, 0)
+        {% if device.re == 2 %}
+        VMX_OTHER_RE_PRESENT
+        {% endif %}
+    VMX_RE_END
+    {% if device.re == 2 %}
+    VMX_RE_START({{ device.name }}_RE1, 1)
+        VMX_RE_INSTANCE({{ device.name }}_RE1, {{ device.name }}_DISK, VMX_RE_I2CID, 1)
+        VMX_OTHER_RE_PRESENT
+    VMX_RE_END
+    {% endif %}
+    {% for fpc in device.fpcs %}
+    {% set fpc_loop = loop %}
+    VMX_MPC_START({{ device.name }}_{{ fpc.name|upper }}, {{ fpc_loop.index0 }})
+        VMX_MPC_INSTANCE({{ device.name }}_{{ fpc.name|upper }}, {{ device.name }}_DISK, VMX_MPC_I2CID, {{ fpc_loop.index0 }})
+        {% for link in fpc.links %}
+        {% if loop.index0//10 < 2 %}
+        VMX_CONNECT(GE({{ fpc_loop.index0 }},{{ loop.index0//10 }},{{ loop.index0%10 }}), {{ link }})
+        {% elif loop.index0//2 < 11 %}
+        VMX_CONNECT(XE({{ fpc_loop.index0 }},2,{{ loop.index0%2 }}), {{ link }})
+        {% elif loop.index0//2 < 12 %}
+        VMX_CONNECT(XE({{ fpc_loop.index0 }},3,{{ loop.index0%2 }}), {{ link }})
+        {% endif %}
+        {% endfor %}
+    VMX_MPC_END
+   {% endfor %}
+VMX_CHASSIS_END
+{% endif %}
+{% if device.type == 'vscapa' %}
+#undef  PTX_CHAS_NAME
+#define PTX_CHAS_NAME      {{ device.name }}
+#undef  PTX_CHAS_I2CID
+#define PTX_CHAS_I2CID     240  /* JNX_PRODUCT_PTX10008 = 240 */
+#define EVO_DEVELOPER_FILES \
+	install "ENV(CONFIG_BASE)/evo-mount/yp.conf" "/etc/yp.conf";  \
+	install "ENV(CONFIG_BASE)/evo-mount/auto.evo" "/etc/auto.evo"; \
+	install "ENV(CONFIG_BASE)/evo-mount/auto.evofiler" "/etc/auto.evofiler"; \
+	install "ENV(CONFIG_BASE)/evo-mount/auto.master" "/etc/auto.master";  \
+	install "ENV(CONFIG_BASE)/evo-mount/nisdomainname" "/etc/nisdomainname";   \
+	install "ENV(CONFIG_BASE)/evo-mount/nsswitch.conf" "/etc/nsswitch.conf";   \
+	install "/vmm/data/vmm-configs/common/vptxc/rc.vmm" "/var/vmguest/rc.vmm";   \
+	install "ENV(CONFIG_BASE)/evo-mount/ssh_host_rsa_key" "/home/root/.ssh/ssh_host_rsa_key"; \
+	install "ENV(CONFIG_BASE)/evo-mount/ssh_host_rsa_key.pub" "/home/root/.ssh/ssh_host_rsa_key.pub";
+EVOVPTX_CHASSIS_START_ (PTX_CHAS_NAME)
+{% for r in range(device.re) %}
+    EVOVPTX_RE_START_ (PTX_CHAS_NAME, EVOVPTX_RE{{ loop.index0 }})
+        #undef RE_BOOT_ARGS
+        #define RE_BOOT_ARGS   " "
+        #undef RE_I2CID
+        #define RE_I2CID  0x0CA3
+        EVOVPTX_RE{{ loop.index0 }}_INSTANCE_ISO_AUTODISK (PTX_CHAS_NAME, PTX_CHAS_I2CID, {{ device.name }}_DISK, EVOVPTX_RE0, RE_I2CID, RE_BOOT_ARGS)
+        EVO_DEVELOPER_FILES
+    EVOVPTX_RE_END_
+{% endfor %}
+    {% for fpc in device.fpcs %}
+    {% set fpc_loop = loop %}
+    EVOVPTX_FPC_START_ (PTX_CHAS_NAME, EVOVPTX_FPC{{ loop.index0 }})
+        #undef FPC_BOOT_ARGS
+        #define FPC_BOOT_ARGS   " "
+        #undef FPC_I2CID
+        #define FPC_I2CID  0x0D07
+        EVOVPTX_FPC_INSTANCE_DISKLESS (PTX_CHAS_NAME, PTX_CHAS_I2CID, EVOVPTX_RE0, EVOVPTX_FPC{{ loop.index0 }}, FPC_I2CID, FPC_BOOT_ARGS)
+    EVOVPTX_FPC_END_
+    EVOVPTX_FPC_CSPP_START_ (PTX_CHAS_NAME, EVOVPTX_FPC{{ loop.index0 }})
+        EVOVPTX_FPC_CSPP_INSTANCE (PTX_CHAS_NAME, EVOVPTX_FPC{{ loop.index0 }}, EVOVPTX_FPC_CSPP_IMG)
+        EVOVPTX_INSTALL_FPC_CSPP_BUNDLE_SCAPA (VMM_ENV_CSPP_CFG_DIR)
+        {% for link in fpc.links %}
+        {% if loop.index0 < 18 %}
+        EVOVPTX_CONNECT (IF_ET ({{ fpc_loop.index0 }}, 0, {{ (loop.index0)*2+1 }}),  {{ link }})
+        {% endif %}
+        {% endfor %}
+    EVOVPTX_FPC_CSPP_END_
+    {% endfor %}
+EVOVPTX_CHASSIS_END_
+{% endif %}
+{% if device.type == 'vbrackla' %}
+#undef  PTX_CHAS_NAME
+#define PTX_CHAS_NAME  {{ device.name }}
+#undef EVOvBrackla_RE_MEMORY
+#define EVOvBrackla_RE_MEMORY 16384
+   EVOVPTX_CHASSIS_START_ (PTX_CHAS_NAME)
+	    EVOvBracklaRE(PTX_CHAS_NAME,{{ device.name }}_DISK)
+	    EVOvBrackla_CSPP_START(PTX_CHAS_NAME,EVOVPTX_FPC_CSPP_IMG)
+        {% for fpc in device.fpcs %}
+        {% for link in fpc.links %}
+		EVOVPTX_CONNECT(IF_ET(0, 0, {{ loop.index0 }}), {{ link }})
+        {% endfor %}
+        {% endfor %}
+	    EVOvBrackla_CSPP_END
+	EVOVPTX_CHASSIS_END_
+{% endif %}
+{% if device.type == 'vardberg' %}
+#undef    PTX_CHAS_NAME
+#undef    EVOvArdbeg_RE_MEMORY
+#define PTX_CHAS_NAME  {{ device.name }}
+#define EVOvArdbeg_RE_MEMORY 8192
+    EVOVPTX_CHASSIS_START_ (PTX_CHAS_NAME)
+        EVOvArdbegRE(PTX_CHAS_NAME,{{ device.name }}_DISK)
+        EVOvArdbeg_CSPP_START(PTX_CHAS_NAME,EVOVPTX_FPC_CSPP_IMG)
+        EVOVPTX_CONNECT(IF_ET (0, 0, 0), external)
+        {% for fpc in device.fpcs %}
+        {% for link in fpc.links %}
+		EVOVPTX_CONNECT(IF_ET(0, 0, {{ loop.index0+1 }}), {{ link }})
+        {% endfor %}
+        {% endfor %}
+        EVOvArdbeg_CSPP_END
+    EVOVPTX_CHASSIS_END_ 
+{% endif %}
+{% if device.type == 'vsrx'%}
+vm "{{ device.name }}" {
+    memory {{ device.mem*1024 }};
+    ncpus 4;
+    hostname "{{device.name}}";
+    {{ device.name }}_DISK
+    install "/vmm/bin/configs/quincy/junos/vsrx3.base.systest.conf" "/root/junos.base.conf";
+    interface "vio0" { EXTERNAL; };
+    {% for fpc in device.fpcs %}
+    {% for link in fpc.links %}
+    interface "vio{{ loop.index }}" { bridge "{{ link }}"; };
+    {% endfor %}
+    {% endfor %}
+};
+{% endif %}
+{% if device.type == 'vserver'%}
+vm "{{ device.name }}" {
+    hostname "{{device.name}}";
+    {{ device.name }}_DISK
+    ncpus 8;
+    memory {{ device.mem*1024 }};
+    interface "em0" { EXTERNAL; };
+    {% for fpc in device.fpcs %}
+    {% for link in fpc.links %}
+    interface "em{{ loop.index }}" { bridge "{{ link }}"; };
+    {% endfor %}
+    {% endfor %}
+};
+{% endif %}
+{% if device.type == 'vqfx'%}
+vm "{{ device.name }}" {
+    hostname "{{ device.name }}";
+    {{ device.name }}_DISK
+    setvar "boot_noveriexec" "YES";
+    setvar "qemu_args" "-smbios type=1,product=QFX10K-11";
+    install "/vmm/bin/configs/quincy/junos/vqfx.base.systest.conf" "/root/junos.base.conf";
+    interface "em0" { EXTERNAL; };
+    interface "em1" { bridge "pecosim_bridge_{{ device.name }}"; ipaddr "169.254.0.2"; };
+    interface "em2" { bridge "reserved_bridge"; };
+    {% for fpc in device.fpcs %}
+    {% for link in fpc.links %}
+    {% if loop.index0 < 12 %}
+    interface "em{{ loop.index0+3 }}" { bridge "{{ link }}"; };
+    {% endif %}
+    {% endfor %}
+    {% endfor %}
+};
+vm "pecosim{{ device.name }}" {
+    hostname "pecosim{{ device.name }}";
+    COSIM_DISK
+    memory {{ device.mem*1024 }};
+    ncpus 2;
+    interface "em0" { EXTERNAL; };
+    interface "em1" { bridge "pecosim_bridge_{{ device.name }}"; ipaddr "169.254.0.1"; };
+};
+bridge "pecosim_bridge_{{ device.name }}"{};
+{% endif %}
+{% endfor %}
+{% for link in bridges %}
+bridge "{{ link }}"{};
+{% endfor %}
+{% if 'vqfx' in types %}
+bridge "reserved_bridge"{};
+{% endif %}
+PRIVATE_BRIDGES
+TOPOLOGY_END

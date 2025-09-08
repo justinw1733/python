@@ -378,57 +378,37 @@ class TopologyBuilder:
                             print(f"DEBUG: No VLAN members found for trunk interface {interface_name}")
                             print(f"DEBUG: Interface block content: {repr(interface_block)}")
                     else:
-                        # Debug output to see what interfaces are not being matched
-                        if interface_name.startswith("ae"):
-                            print(f"DEBUG: AE interface {interface_name} not matched as trunk")
-                            print(f"DEBUG: Interface block content: {repr(interface_block)}")
-                            # Try a more specific pattern for AE interfaces
-                            # Look for the exact pattern we see in the config files
-                            ae_trunk_match = re.search(r'unit\s+0\s*\{[^}]*?family\s+ethernet-switching\s*\{[^}]*?interface-mode\s+trunk;', interface_block, re.DOTALL)
-                            if ae_trunk_match:
-                                print(f"DEBUG: Found AE trunk interface {interface_name} with specific pattern")
-                                # Look for vlan members
-                                members_match = re.search(r'vlan\s*\{[^}]*?members\s+([^;]+?)\s*;', interface_block, re.DOTALL)
-                                if members_match:
-                                    members_str = members_match.group(1).strip()
-                                    print(f"DEBUG: Found VLAN members for AE trunk {interface_name}: {members_str}")
-                                    if members_str == "all":
-                                        device.trunk_interfaces[interface_name] = "all"
-                                    elif members_str.startswith("[") and members_str.endswith("]"):
-                                        # Parse list of VLANs
-                                        vlan_list = members_str.strip()[1:-1].strip().split()
-                                        device.trunk_interfaces[interface_name] = vlan_list
-                                    else:
-                                        # Single VLAN
-                                        device.trunk_interfaces[interface_name] = [members_str]
-                                else:
-                                    print(f"DEBUG: No VLAN members found for AE trunk {interface_name}")
-                                    # Let's try a different pattern for the members
-                                    members_match2 = re.search(r'members\s+([^;]+?);', interface_block, re.DOTALL)
-                                    if members_match2:
-                                        members_str = members_match2.group(1).strip()
-                                        print(f"DEBUG: Found VLAN members with alternative pattern for {interface_name}: {members_str}")
-                                        if members_str == "all":
-                                            device.trunk_interfaces[interface_name] = "all"
-                                        elif members_str.startswith("[") and members_str.endswith("]"):
-                                            # Parse list of VLANs
-                                            vlan_list = members_str.strip()[1:-1].strip().split()
-                                            device.trunk_interfaces[interface_name] = vlan_list
-                                        else:
-                                            # Single VLAN
-                                            device.trunk_interfaces[interface_name] = [members_str]
-                                    else:
-                                        print(f"DEBUG: Still no VLAN members found for {interface_name} with alternative pattern")
+                        # Look for access mode interfaces
+                        access_match = re.search(r'unit\s+\d+\s*\{[^}]*?family\s+ethernet-switching\s*\{[^}]*?interface-mode\s+access;', interface_block, re.DOTALL)
+                        if access_match:
+                            print(f"DEBUG: Found access interface {interface_name}")
+                            # Look for vlan members with a more precise pattern
+                            # Handle single VLAN format
+                            members_match = re.search(r'vlan\s*\{[^}]*?members\s+([^;]+?)\s*;', interface_block, re.DOTALL)
+                            if members_match:
+                                members_str = members_match.group(1).strip()
+                                print(f"DEBUG: Found VLAN members for access interface {interface_name}: {members_str}")
+                                # Store access VLAN information
+                                if not hasattr(device, 'access_interfaces'):
+                                    device.access_interfaces = {}
+                                device.access_interfaces[interface_name] = members_str
                             else:
-                                # Let's try an even more general pattern
-                                general_trunk_match = re.search(r'interface-mode\s+trunk;', interface_block)
-                                if general_trunk_match:
-                                    print(f"DEBUG: Found general trunk interface {interface_name}")
-                                    # Look for vlan members with the alternative pattern
-                                    members_match = re.search(r'members\s+([^;]+?);', interface_block, re.DOTALL)
+                                print(f"DEBUG: No VLAN members found for access interface {interface_name}")
+                        else:
+                            # Debug output to see what interfaces are not being matched
+                            if interface_name.startswith("ae"):
+                                print(f"DEBUG: AE interface {interface_name} not matched as trunk")
+                                print(f"DEBUG: Interface block content: {repr(interface_block)}")
+                                # Try a more specific pattern for AE interfaces
+                                # Look for the exact pattern we see in the config files
+                                ae_trunk_match = re.search(r'unit\s+0\s*\{[^}]*?family\s+ethernet-switching\s*\{[^}]*?interface-mode\s+trunk;', interface_block, re.DOTALL)
+                                if ae_trunk_match:
+                                    print(f"DEBUG: Found AE trunk interface {interface_name} with specific pattern")
+                                    # Look for vlan members
+                                    members_match = re.search(r'vlan\s*\{[^}]*?members\s+([^;]+?)\s*;', interface_block, re.DOTALL)
                                     if members_match:
                                         members_str = members_match.group(1).strip()
-                                        print(f"DEBUG: Found VLAN members for general trunk {interface_name}: {members_str}")
+                                        print(f"DEBUG: Found VLAN members for AE trunk {interface_name}: {members_str}")
                                         if members_str == "all":
                                             device.trunk_interfaces[interface_name] = "all"
                                         elif members_str.startswith("[") and members_str.endswith("]"):
@@ -438,17 +418,13 @@ class TopologyBuilder:
                                         else:
                                             # Single VLAN
                                             device.trunk_interfaces[interface_name] = [members_str]
-                                else:
-                                    print(f"DEBUG: AE interface {interface_name} not matched with any trunk pattern")
-                                    # Let's check if it contains "interface-mode trunk" anywhere
-                                    contains_trunk = "interface-mode trunk" in interface_block
-                                    if contains_trunk:
-                                        print(f"DEBUG: AE interface {interface_name} contains 'interface-mode trunk'")
-                                        # Look for vlan members with the alternative pattern
-                                        members_match = re.search(r'members\s+([^;]+?);', interface_block, re.DOTALL)
-                                        if members_match:
-                                            members_str = members_match.group(1).strip()
-                                            print(f"DEBUG: Found VLAN members for AE trunk {interface_name}: {members_str}")
+                                    else:
+                                        print(f"DEBUG: No VLAN members found for AE trunk {interface_name}")
+                                        # Let's try a different pattern for the members
+                                        members_match2 = re.search(r'members\s+([^;]+?);', interface_block, re.DOTALL)
+                                        if members_match2:
+                                            members_str = members_match2.group(1).strip()
+                                            print(f"DEBUG: Found VLAN members with alternative pattern for {interface_name}: {members_str}")
                                             if members_str == "all":
                                                 device.trunk_interfaces[interface_name] = "all"
                                             elif members_str.startswith("[") and members_str.endswith("]"):
@@ -459,7 +435,48 @@ class TopologyBuilder:
                                                 # Single VLAN
                                                 device.trunk_interfaces[interface_name] = [members_str]
                                         else:
-                                            print(f"DEBUG: No VLAN members found for AE trunk {interface_name} with contains pattern")
+                                            print(f"DEBUG: Still no VLAN members found for {interface_name} with alternative pattern")
+                                else:
+                                    # Let's try an even more general pattern
+                                    general_trunk_match = re.search(r'interface-mode\s+trunk;', interface_block)
+                                    if general_trunk_match:
+                                        print(f"DEBUG: Found general trunk interface {interface_name}")
+                                        # Look for vlan members with the alternative pattern
+                                        members_match = re.search(r'members\s+([^;]+?);', interface_block, re.DOTALL)
+                                        if members_match:
+                                            members_str = members_match.group(1).strip()
+                                            print(f"DEBUG: Found VLAN members for general trunk {interface_name}: {members_str}")
+                                            if members_str == "all":
+                                                device.trunk_interfaces[interface_name] = "all"
+                                            elif members_str.startswith("[") and members_str.endswith("]"):
+                                                # Parse list of VLANs
+                                                vlan_list = members_str.strip()[1:-1].strip().split()
+                                                device.trunk_interfaces[interface_name] = vlan_list
+                                            else:
+                                                # Single VLAN
+                                                device.trunk_interfaces[interface_name] = [members_str]
+                                    else:
+                                        print(f"DEBUG: AE interface {interface_name} not matched with any trunk pattern")
+                                        # Let's check if it contains "interface-mode trunk" anywhere
+                                        contains_trunk = "interface-mode trunk" in interface_block
+                                        if contains_trunk:
+                                            print(f"DEBUG: AE interface {interface_name} contains 'interface-mode trunk'")
+                                            # Look for vlan members with the alternative pattern
+                                            members_match = re.search(r'members\s+([^;]+?);', interface_block, re.DOTALL)
+                                            if members_match:
+                                                members_str = members_match.group(1).strip()
+                                                print(f"DEBUG: Found VLAN members for AE trunk {interface_name}: {members_str}")
+                                                if members_str == "all":
+                                                    device.trunk_interfaces[interface_name] = "all"
+                                                elif members_str.startswith("[") and members_str.endswith("]"):
+                                                    # Parse list of VLANs
+                                                    vlan_list = members_str.strip()[1:-1].strip().split()
+                                                    device.trunk_interfaces[interface_name] = vlan_list
+                                                else:
+                                                    # Single VLAN
+                                                    device.trunk_interfaces[interface_name] = [members_str]
+                                            else:
+                                                print(f"DEBUG: No VLAN members found for AE trunk {interface_name} with contains pattern")
             
             # Extract interface information
             # Handle both set format and hierarchical format
@@ -1762,7 +1779,9 @@ class DrawIOGenerator:
                                 # If VLAN ID not found, just use the VLAN name
                                 device_lines.append(f"  {interface_name} trunk [ {vlan_members} ]")
                 
-                # Add access interface information
+                # Print access interface information (interfaces that are not trunk)
+                # For switches, we can infer access interfaces as those that have VLAN information
+                # but are not explicitly marked as trunk
                 for interface_name, ip_info in device.interfaces.items():
                     # Skip loopback and IRB interfaces
                     if interface_name in ["lo0"] or interface_name.startswith("irb"):
@@ -1772,16 +1791,35 @@ class DrawIOGenerator:
                     if interface_name in device.trunk_interfaces:
                         continue
                     
-                    # Check if this is an access interface by looking for neighbors
-                    has_neighbor = False
-                    for local_port, remote_device, remote_port in device.neighbors:
-                        if local_port == interface_name:
-                            has_neighbor = True
-                            break
-                    
-                    # For switches, if an interface is not trunk and has a neighbor, it's likely an access interface
-                    if device.device_type == 'switch' and has_neighbor and interface_name not in device.trunk_interfaces:
-                        device_lines.append(f"  {interface_name} access: connected to neighbor")
+                    # Check if this is an access interface with VLAN information
+                    if hasattr(device, 'access_interfaces') and interface_name in device.access_interfaces:
+                        vlan_name = device.access_interfaces[interface_name]
+                        # Try to find the VLAN ID from the vlan_irb_mapping
+                        if vlan_name in device.vlan_irb_mapping:
+                            # Get the VLAN ID from the mapping
+                            _, vlan_id = device.vlan_irb_mapping[vlan_name]
+                            print(f"  {interface_name} access {vlan_name}:{vlan_id}")
+                        else:
+                            # If VLAN ID not found, just use the VLAN name
+                            print(f"  {interface_name} access {vlan_name}")
+                    else:
+                        # Check if this is an access interface by looking for VLAN information
+                        # Access interfaces typically have a single VLAN associated with them
+                        # In Junos, access interfaces have "interface-mode access" and a single VLAN
+                        # For now, we'll just note that these are access interfaces without specific VLAN info
+                        # unless we can extract it from the configuration
+                        
+                        # For access interfaces, we can check if they're connected to other devices
+                        # and mark them as access interfaces
+                        has_neighbor = False
+                        for local_port, remote_device, remote_port in device.neighbors:
+                            if local_port == interface_name:
+                                has_neighbor = True
+                                break
+                        
+                        # For switches, if an interface is not trunk and has a neighbor, it's likely an access interface
+                        if device.device_type == 'switch' and has_neighbor and interface_name not in device.trunk_interfaces:
+                            print(f"  {interface_name} access: connected to neighbor")
                 
                 if len(device_lines) > 1:  # Only add device if it has Layer 2 info
                     layer2_lines.extend(device_lines)

@@ -2301,72 +2301,8 @@ def main():
                                     print(f"  {interface_name}: {ip_part}")
                 print()  # Empty line between devices
             
-        # Process Layer 2 information for Layer 2 option
-        layer2_lines = ["Layer 2 Interface Information", ""]  # Add empty line after title
+
         
-        if self.args.layer2:
-            # Collect Layer 2 information for all devices
-            for device_name, device in sorted_devices:
-                device_lines = [f"{device_name}:"]
-                
-                # Add trunk interface information with correct format
-                for interface_name, vlan_members in device.trunk_interfaces.items():
-                    if vlan_members == "all":
-                        device_lines.append(f"  {interface_name} trunk: all VLANs")
-                    else:
-                        # Format VLAN members list with correct brackets format
-                        if isinstance(vlan_members, list):
-                            # For each VLAN, try to find the VLAN ID from the vlan_irb_mapping
-                            formatted_vlans = []
-                            for vlan_name in vlan_members:
-                                if vlan_name in device.vlan_irb_mapping:
-                                    # Get the VLAN ID from the mapping
-                                    _, vlan_id = device.vlan_irb_mapping[vlan_name]
-                                    formatted_vlans.append(f"{vlan_name}<{vlan_id}>")
-                                else:
-                                    # If VLAN ID not found, just use the VLAN name
-                                    formatted_vlans.append(vlan_name)
-                            vlan_str = " ".join(formatted_vlans)
-                            device_lines.append(f"  {interface_name} trunk [ {vlan_str} ]")
-                        else:
-                            # Single VLAN
-                            if vlan_members in device.vlan_irb_mapping:
-                                # Get the VLAN ID from the mapping
-                                _, vlan_id = device.vlan_irb_mapping[vlan_members]
-                                device_lines.append(f"  {interface_name} trunk [ {vlan_members}<{vlan_id}> ]")
-                            else:
-                                # If VLAN ID not found, just use the VLAN name
-                                device_lines.append(f"  {interface_name} trunk [ {vlan_members} ]")
-                
-                # Add access interface information
-                for interface_name, ip_info in device.interfaces.items():
-                    # Skip loopback and IRB interfaces
-                    if interface_name in ["lo0"] or interface_name.startswith("irb"):
-                        continue
-                    
-                    # Skip interfaces that are already marked as trunk
-                    if interface_name in device.trunk_interfaces:
-                        continue
-                    
-                    # Check if this is an access interface by looking for neighbors
-                    has_neighbor = False
-                    for local_port, remote_device, remote_port in device.neighbors:
-                        if local_port == interface_name:
-                            has_neighbor = True
-                            break
-                    
-                    # For switches, if an interface is not trunk and has a neighbor, it's likely an access interface
-                    if device.device_type == 'switch' and has_neighbor and interface_name not in device.trunk_interfaces:
-                        device_lines.append(f"  {interface_name} access: connected to neighbor")
-                
-                if len(device_lines) > 1:  # Only add device if it has Layer 2 info
-                    layer2_lines.extend(device_lines)
-                    layer2_lines.append("")  # Empty line between devices
-            
-            # Remove trailing empty line if exists
-            if layer2_lines and layer2_lines[-1] == "":
-                layer2_lines.pop()
-            
         # Print Layer 2 information if Layer 2 option is enabled
         if args.layer2:
             print("\n\nLayer 2 Interface Information:")
@@ -2400,34 +2336,6 @@ def main():
                             else:
                                 # If VLAN ID not found, just use the VLAN name
                                 print(f"  {interface_name} trunk [ {vlan_members} ]")
-                
-                # Print access interface information (interfaces that are not trunk)
-                # For switches, we can infer access interfaces as those that have VLAN information
-                # but are not explicitly marked as trunk
-                for interface_name, ip_info in device.interfaces.items():
-                    # Skip loopback and IRB interfaces
-                    if interface_name in ["lo0"] or interface_name.startswith("irb"):
-                        continue
-                    
-                    # Skip interfaces that are already marked as trunk
-                    if interface_name in device.trunk_interfaces:
-                        continue
-                    
-                    # Check if this is an access interface by looking for VLAN information
-                    # Access interfaces typically have a single VLAN associated with them
-                    # In Junos, access interfaces have "interface-mode access" and a single VLAN
-                    # For now, we'll just note that these are access interfaces without specific VLAN info
-                    # unless we can extract it from the configuration
-                    
-                    # For access interfaces, we can check if they're connected to other devices
-                    # and mark them as access interfaces
-                    has_neighbor = False
-                    for local_port, remote_device, remote_port in device.neighbors:
-                        if local_port == interface_name:
-                            has_neighbor = True
-                            break
-                    
-                    # For switches, if an interface is not trunk and has a neighbor, it's likely an access interface
                 print()  # Empty line between devices
             
     except Exception as e:

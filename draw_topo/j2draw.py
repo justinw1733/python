@@ -1779,9 +1779,7 @@ class DrawIOGenerator:
                                 # If VLAN ID not found, just use the VLAN name
                                 device_lines.append(f"  {interface_name} trunk [ {vlan_members} ]")
                 
-                # Print access interface information (interfaces that are not trunk)
-                # For switches, we can infer access interfaces as those that have VLAN information
-                # but are not explicitly marked as trunk
+                # Add access interface information
                 for interface_name, ip_info in device.interfaces.items():
                     # Skip loopback and IRB interfaces
                     if interface_name in ["lo0"] or interface_name.startswith("irb"):
@@ -1798,19 +1796,12 @@ class DrawIOGenerator:
                         if vlan_name in device.vlan_irb_mapping:
                             # Get the VLAN ID from the mapping
                             _, vlan_id = device.vlan_irb_mapping[vlan_name]
-                            print(f"  {interface_name} access {vlan_name}:{vlan_id}")
+                            device_lines.append(f"  {interface_name} access {vlan_name}:{vlan_id}")
                         else:
                             # If VLAN ID not found, just use the VLAN name
-                            print(f"  {interface_name} access {vlan_name}")
+                            device_lines.append(f"  {interface_name} access {vlan_name}")
                     else:
-                        # Check if this is an access interface by looking for VLAN information
-                        # Access interfaces typically have a single VLAN associated with them
-                        # In Junos, access interfaces have "interface-mode access" and a single VLAN
-                        # For now, we'll just note that these are access interfaces without specific VLAN info
-                        # unless we can extract it from the configuration
-                        
-                        # For access interfaces, we can check if they're connected to other devices
-                        # and mark them as access interfaces
+                        # Check if this is an access interface by looking for neighbors
                         has_neighbor = False
                         for local_port, remote_device, remote_port in device.neighbors:
                             if local_port == interface_name:
@@ -1819,7 +1810,7 @@ class DrawIOGenerator:
                         
                         # For switches, if an interface is not trunk and has a neighbor, it's likely an access interface
                         if device.device_type == 'switch' and has_neighbor and interface_name not in device.trunk_interfaces:
-                            print(f"  {interface_name} access: connected to neighbor")
+                            device_lines.append(f"  {interface_name} access: connected to neighbor")
                 
                 if len(device_lines) > 1:  # Only add device if it has Layer 2 info
                     layer2_lines.extend(device_lines)
@@ -1855,6 +1846,6193 @@ class DrawIOGenerator:
                 if not spatial_index.overlaps(bbox):
                     ip_elements.append(element)
                     spatial_index.insert(bbox, element_id)
+        
+        return ip_elements
+    
+    def _escape_xml_for_html(self, text: str) -> str:
+        """Escape special characters for XML attributes while preserving HTML tags"""
+        # First escape XML special characters
+        escaped = text.replace('&', '&amp;') \
+                     .replace('<', '&lt;') \
+                     .replace('>', '&gt;') \
+                     .replace('"', '&quot;') \
+                     .replace("'", '&apos;')
+        
+        # Then unescape HTML line breaks so they work in DrawIO
+        escaped = escaped.replace('&lt;br&gt;', '<br>')
+        
+        return escaped
+    
+    def generate_drawio_xml(self, topology: TopologyBuilder) -> str:
+        """Generate complete DrawIO XML with simplified label positioning"""
+        # Calculate layout
+        topology.calculate_layout()
+        
+        # Reset ID counter to ensure clean start
+        self.next_id = 2
+        self.device_id_map.clear()
+        
+        # Store topology reference for accessing device information
+        self.topology = topology
+        
+        # Get sorted list of devices
+        sorted_devices = sorted(topology.devices.items(), key=lambda x: x[0])
+        
+        # Create spatial index for collision detection
+        spatial_index = rtree.index.Index()
+        
+        # Process IP information for IP option
+        ip_elements = []
+        diagram_bottom_y = 0
+        
+        if self.args.ip:
+            # Collect IP information for all devices
+            for device_name, device in sorted_devices:
+                device_lines = [f"{device_name}:"]
+                
+                # Add IP information for each interface
+                for interface_name, ip_info in device.interfaces.items():
+                    # Skip loopback and IRB interfaces
+                    if interface_name in ["lo0"] or interface_name.startswith("irb"):
+                        continue
+                    
+                    # Add IP information with correct format
+                    if ip_info:
+                        device_lines.append(f"  {interface_name}: {ip_info}")
+                
+                if len(device_lines) > 1:  # Only add device if it has IP info
+                    ip_lines.extend(device_lines)
+                    ip_lines.append("")  # Empty line between devices
+            
+            # Remove trailing empty line if exists
+            if ip_lines and ip_lines[-1] == "":
+                ip_lines.pop()
+            
+            # Create single text box for all IP information
+            if len(ip_lines) > 2:  # Only create if there's actual IP info (title + empty line + content)
+                # Calculate text box size based on content with precise auto-scaling
+                max_line_length = max(len(line) for line in ip_lines)
+                # More precise width calculation: 5.5 pixels per character + 15px padding
+                text_width = max(180, int(max_line_length * 5.5 + 15))
+                # More precise height calculation: 14px per line + 25px padding
+                text_height = max(70, len(ip_lines) * 14 + 25)
+                
+                element_id = str(self.next_id)
+                self.next_id += 1
+                
+                # Create content with HTML line breaks for DrawIO
+                ip_text = "<br>".join(ip_lines)
+                escaped_ip_text = self._escape_xml(ip_text)
+                
+                # Create element with light blue background for IP info
+                element = f'''<mxCell id="{element_id}" value="{escaped_ip_text}" style="text;html=1;align=left;verticalAlign=top;whiteSpace=wrap;rounded=0;fontSize=10;fontColor=#000000;fillColor=#e3f2fd;strokeColor=#000000;" vertex="1" parent="1">
+                    <mxGeometry x="50" y="0" width="{text_width}" height="{text_height}" as="geometry"/>
+                  </mxCell>'''
+                
+                # Check for collisions before adding
+                bbox = {'x': 50, 'y': 0, 'w': text_width, 'h': text_height}
+                if not spatial_index.overlaps(bbox):
+                    ip_elements.append(element)
+                    spatial_index.insert(bbox, element_id)
+                
+                diagram_bottom_y += text_height + 15  # Move down for next element
+        
+        # Print Layer 2 information if Layer 2 option is enabled
+        if args.layer2:
+            print("\n\nLayer 2 Interface Information:")
+            for device_name, device in sorted_devices:
+                print(f"{device_name}:")
+                # Print trunk interface information with correct format
+                for interface_name, vlan_members in device.trunk_interfaces.items():
+                    if vlan_members == "all":
+                        print(f"  {interface_name} trunk: all VLANs")
+                    else:
+                        # Format VLAN members list with correct brackets format
+                        if isinstance(vlan_members, list):
+                            # For each VLAN, try to find the VLAN ID from the vlan_irb_mapping
+                            formatted_vlans = []
+                            for vlan_name in vlan_members:
+                                if vlan_name in device.vlan_irb_mapping:
+                                    # Get the VLAN ID from the mapping
+                                    _, vlan_id = device.vlan_irb_mapping[vlan_name]
+                                    formatted_vlans.append(f"{vlan_name}<{vlan_id}>")
+                                else:
+                                    # If VLAN ID not found, just use the VLAN name
+                                    formatted_vlans.append(vlan_name)
+                            vlan_str = " ".join(formatted_vlans)
+                            print(f"  {interface_name} trunk [ {vlan_str} ]")
+                        else:
+                            # Single VLAN
+                            if vlan_members in device.vlan_irb_mapping:
+                                # Get the VLAN ID from the mapping
+                                _, vlan_id = device.vlan_irb_mapping[vlan_members]
+                                print(f"  {interface_name} trunk [ {vlan_members}<{vlan_id}> ]")
+                            else:
+                                # If VLAN ID not found, just use the VLAN name
+                                print(f"  {interface_name} trunk [ {vlan_members} ]")
+                
+                # Print access interface information
+                for interface_name, ip_info in device.interfaces.items():
+                    # Skip loopback and IRB interfaces
+                    if interface_name in ["lo0"] or interface_name.startswith("irb"):
+                        continue
+                    
+                    # Skip interfaces that are already marked as trunk
+                    if interface_name in device.trunk_interfaces:
+                        continue
+                    
+                    # Check if this is an access interface with VLAN information
+                    if hasattr(device, 'access_interfaces') and interface_name in device.access_interfaces:
+                        vlan_name = device.access_interfaces[interface_name]
+                        # Try to find the VLAN ID from the vlan_irb_mapping
+                        if vlan_name in device.vlan_irb_mapping:
+                            # Get the VLAN ID from the mapping
+                            _, vlan_id = device.vlan_irb_mapping[vlan_name]
+                            print(f"  {interface_name} access {vlan_name}:{vlan_id}")
+                        else:
+                            # If VLAN ID not found, just use the VLAN name
+                            print(f"  {interface_name} access {vlan_name}")
+                    else:
+                        # Check if this is an access interface by looking for neighbors
+                        has_neighbor = False
+                        for local_port, remote_device, remote_port in device.neighbors:
+                            if local_port == interface_name:
+                                has_neighbor = True
+                                break
+                        
+                        # For switches, if an interface is not trunk and has a neighbor, it's likely an access interface
+                        if device.device_type == 'switch' and has_neighbor and interface_name not in device.trunk_interfaces:
+                            print(f"  {interface_name} access: connected to neighbor")
+                print()  # Empty line between devices
+        return ip_elements
+    
+    def _escape_xml_for_html(self, text: str) -> str:
+        """Escape special characters for XML attributes while preserving HTML tags"""
+        # First escape XML special characters
+        escaped = text.replace('&', '&amp;') \
+                     .replace('<', '&lt;') \
+                     .replace('>', '&gt;') \
+                     .replace('"', '&quot;') \
+                     .replace("'", '&apos;')
+        
+        # Then unescape HTML line breaks so they work in DrawIO
+        escaped = escaped.replace('&lt;br&gt;', '<br>')
+        
+        return escaped
+    
+    def generate_drawio_xml(self, topology: TopologyBuilder) -> str:
+        """Generate complete DrawIO XML with simplified label positioning"""
+        # Calculate layout
+        topology.calculate_layout()
+        
+        # Reset ID counter to ensure clean start
+        self.next_id = 2
+        self.device_id_map.clear()
+        
+        # Store topology reference for accessing device information
+        self.topology = topology
+        
+        # Get sorted list of devices
+        sorted_devices = sorted(topology.devices.items(), key=lambda x: x[0])
+        
+        # Create spatial index for collision detection
+        spatial_index = rtree.index.Index()
+        
+        # Process IP information for IP option
+        ip_elements = []
+        diagram_bottom_y = 0
+        
+        if self.args.ip:
+            # Collect IP information for all devices
+            for device_name, device in sorted_devices:
+                device_lines = [f"{device_name}:"]
+                
+                # Add IP information for each interface
+                for interface_name, ip_info in device.interfaces.items():
+                    # Skip loopback and IRB interfaces
+                    if interface_name in ["lo0"] or interface_name.startswith("irb"):
+                        continue
+                    
+                    # Add IP information with correct format
+                    if ip_info:
+                        device_lines.append(f"  {interface_name}: {ip_info}")
+                
+                if len(device_lines) > 1:  # Only add device if it has IP info
+                    ip_lines.extend(device_lines)
+                    ip_lines.append("")  # Empty line between devices
+            
+            # Remove trailing empty line if exists
+            if ip_lines and ip_lines[-1] == "":
+                ip_lines.pop()
+            
+            # Create single text box for all IP information
+            if len(ip_lines) > 2:  # Only create if there's actual IP info (title + empty line + content)
+                # Calculate text box size based on content with precise auto-scaling
+                max_line_length = max(len(line) for line in ip_lines)
+                # More precise width calculation: 5.5 pixels per character + 15px padding
+                text_width = max(180, int(max_line_length * 5.5 + 15))
+                # More precise height calculation: 14px per line + 25px padding
+                text_height = max(70, len(ip_lines) * 14 + 25)
+                
+                element_id = str(self.next_id)
+                self.next_id += 1
+                
+                # Create content with HTML line breaks for DrawIO
+                ip_text = "<br>".join(ip_lines)
+                escaped_ip_text = self._escape_xml(ip_text)
+                
+                # Create element with light blue background for IP info
+                element = f'''<mxCell id="{element_id}" value="{escaped_ip_text}" style="text;html=1;align=left;verticalAlign=top;whiteSpace=wrap;rounded=0;fontSize=10;fontColor=#000000;fillColor=#e3f2fd;strokeColor=#000000;" vertex="1" parent="1">
+                    <mxGeometry x="50" y="0" width="{text_width}" height="{text_height}" as="geometry"/>
+                  </mxCell>'''
+                
+                # Check for collisions before adding
+                bbox = {'x': 50, 'y': 0, 'w': text_width, 'h': text_height}
+                if not spatial_index.overlaps(bbox):
+                    ip_elements.append(element)
+                    spatial_index.insert(bbox, element_id)
+                
+                diagram_bottom_y += text_height + 15  # Move down for next element
+        
+        return ip_elements
+    
+    def _escape_xml_for_html(self, text: str) -> str:
+        """Escape special characters for XML attributes while preserving HTML tags"""
+        # First escape XML special characters
+        escaped = text.replace('&', '&amp;') \
+                     .replace('<', '&lt;') \
+                     .replace('>', '&gt;') \
+                     .replace('"', '&quot;') \
+                     .replace("'", '&apos;')
+        
+        # Then unescape HTML line breaks so they work in DrawIO
+        escaped = escaped.replace('&lt;br&gt;', '<br>')
+        
+        return escaped
+    
+    def generate_drawio_xml(self, topology: TopologyBuilder) -> str:
+        """Generate complete DrawIO XML with simplified label positioning"""
+        # Calculate layout
+        topology.calculate_layout()
+        
+        # Reset ID counter to ensure clean start
+        self.next_id = 2
+        self.device_id_map.clear()
+        
+        # Store topology reference for accessing device information
+        self.topology = topology
+        
+        # Get sorted list of devices
+        sorted_devices = sorted(topology.devices.items(), key=lambda x: x[0])
+        
+        # Create spatial index for collision detection
+        spatial_index = rtree.index.Index()
+        
+        # Process IP information for IP option
+        ip_elements = []
+        diagram_bottom_y = 0
+        
+        if self.args.ip:
+            # Collect IP information for all devices
+            for device_name, device in sorted_devices:
+                device_lines = [f"{device_name}:"]
+                
+                # Add IP information for each interface
+                for interface_name, ip_info in device.interfaces.items():
+                    # Skip loopback and IRB interfaces
+                    if interface_name in ["lo0"] or interface_name.startswith("irb"):
+                        continue
+                    
+                    # Add IP information with correct format
+                    if ip_info:
+                        device_lines.append(f"  {interface_name}: {ip_info}")
+                
+                if len(device_lines) > 1:  # Only add device if it has IP info
+                    ip_lines.extend(device_lines)
+                    ip_lines.append("")  # Empty line between devices
+            
+            # Remove trailing empty line if exists
+            if ip_lines and ip_lines[-1] == "":
+                ip_lines.pop()
+            
+            # Create single text box for all IP information
+            if len(ip_lines) > 2:  # Only create if there's actual IP info (title + empty line + content)
+                # Calculate text box size based on content with precise auto-scaling
+                max_line_length = max(len(line) for line in ip_lines)
+                # More precise width calculation: 5.5 pixels per character + 15px padding
+                text_width = max(180, int(max_line_length * 5.5 + 15))
+                # More precise height calculation: 14px per line + 25px padding
+                text_height = max(70, len(ip_lines) * 14 + 25)
+                
+                element_id = str(self.next_id)
+                self.next_id += 1
+                
+                # Create content with HTML line breaks for DrawIO
+                ip_text = "<br>".join(ip_lines)
+                escaped_ip_text = self._escape_xml(ip_text)
+                
+                # Create element with light blue background for IP info
+                element = f'''<mxCell id="{element_id}" value="{escaped_ip_text}" style="text;html=1;align=left;verticalAlign=top;whiteSpace=wrap;rounded=0;fontSize=10;fontColor=#000000;fillColor=#e3f2fd;strokeColor=#000000;" vertex="1" parent="1">
+                    <mxGeometry x="50" y="0" width="{text_width}" height="{text_height}" as="geometry"/>
+                  </mxCell>'''
+                
+                # Check for collisions before adding
+                bbox = {'x': 50, 'y': 0, 'w': text_width, 'h': text_height}
+                if not spatial_index.overlaps(bbox):
+                    ip_elements.append(element)
+                    spatial_index.insert(bbox, element_id)
+                
+                diagram_bottom_y += text_height + 15  # Move down for next element
+        
+        return ip_elements
+    
+    def _escape_xml_for_html(self, text: str) -> str:
+        """Escape special characters for XML attributes while preserving HTML tags"""
+        # First escape XML special characters
+        escaped = text.replace('&', '&amp;') \
+                     .replace('<', '&lt;') \
+                     .replace('>', '&gt;') \
+                     .replace('"', '&quot;') \
+                     .replace("'", '&apos;')
+        
+        # Then unescape HTML line breaks so they work in DrawIO
+        escaped = escaped.replace('&lt;br&gt;', '<br>')
+        
+        return escaped
+    
+    def generate_drawio_xml(self, topology: TopologyBuilder) -> str:
+        """Generate complete DrawIO XML with simplified label positioning"""
+        # Calculate layout
+        topology.calculate_layout()
+        
+        # Reset ID counter to ensure clean start
+        self.next_id = 2
+        self.device_id_map.clear()
+        
+        # Store topology reference for accessing device information
+        self.topology = topology
+        
+        # Get sorted list of devices
+        sorted_devices = sorted(topology.devices.items(), key=lambda x: x[0])
+        
+        # Create spatial index for collision detection
+        spatial_index = rtree.index.Index()
+        
+        # Process IP information for IP option
+        ip_elements = []
+        diagram_bottom_y = 0
+        
+        if self.args.ip:
+            # Collect IP information for all devices
+            for device_name, device in sorted_devices:
+                device_lines = [f"{device_name}:"]
+                
+                # Add IP information for each interface
+                for interface_name, ip_info in device.interfaces.items():
+                    # Skip loopback and IRB interfaces
+                    if interface_name in ["lo0"] or interface_name.startswith("irb"):
+                        continue
+                    
+                    # Add IP information with correct format
+                    if ip_info:
+                        device_lines.append(f"  {interface_name}: {ip_info}")
+                
+                if len(device_lines) > 1:  # Only add device if it has IP info
+                    ip_lines.extend(device_lines)
+                    ip_lines.append("")  # Empty line between devices
+            
+            # Remove trailing empty line if exists
+            if ip_lines and ip_lines[-1] == "":
+                ip_lines.pop()
+            
+            # Create single text box for all IP information
+            if len(ip_lines) > 2:  # Only create if there's actual IP info (title + empty line + content)
+                # Calculate text box size based on content with precise auto-scaling
+                max_line_length = max(len(line) for line in ip_lines)
+                # More precise width calculation: 5.5 pixels per character + 15px padding
+                text_width = max(180, int(max_line_length * 5.5 + 15))
+                # More precise height calculation: 14px per line + 25px padding
+                text_height = max(70, len(ip_lines) * 14 + 25)
+                
+                element_id = str(self.next_id)
+                self.next_id += 1
+                
+                # Create content with HTML line breaks for DrawIO
+                ip_text = "<br>".join(ip_lines)
+                escaped_ip_text = self._escape_xml(ip_text)
+                
+                # Create element with light blue background for IP info
+                element = f'''<mxCell id="{element_id}" value="{escaped_ip_text}" style="text;html=1;align=left;verticalAlign=top;whiteSpace=wrap;rounded=0;fontSize=10;fontColor=#000000;fillColor=#e3f2fd;strokeColor=#000000;" vertex="1" parent="1">
+                    <mxGeometry x="50" y="0" width="{text_width}" height="{text_height}" as="geometry"/>
+                  </mxCell>'''
+                
+                # Check for collisions before adding
+                bbox = {'x': 50, 'y': 0, 'w': text_width, 'h': text_height}
+                if not spatial_index.overlaps(bbox):
+                    ip_elements.append(element)
+                    spatial_index.insert(bbox, element_id)
+                
+                diagram_bottom_y += text_height + 15  # Move down for next element
+        
+        return ip_elements
+    
+    def _escape_xml_for_html(self, text: str) -> str:
+        """Escape special characters for XML attributes while preserving HTML tags"""
+        # First escape XML special characters
+        escaped = text.replace('&', '&amp;') \
+                     .replace('<', '&lt;') \
+                     .replace('>', '&gt;') \
+                     .replace('"', '&quot;') \
+                     .replace("'", '&apos;')
+        
+        # Then unescape HTML line breaks so they work in DrawIO
+        escaped = escaped.replace('&lt;br&gt;', '<br>')
+        
+        return escaped
+    
+    def generate_drawio_xml(self, topology: TopologyBuilder) -> str:
+        """Generate complete DrawIO XML with simplified label positioning"""
+        # Calculate layout
+        topology.calculate_layout()
+        
+        # Reset ID counter to ensure clean start
+        self.next_id = 2
+        self.device_id_map.clear()
+        
+        # Store topology reference for accessing device information
+        self.topology = topology
+        
+        # Get sorted list of devices
+        sorted_devices = sorted(topology.devices.items(), key=lambda x: x[0])
+        
+        # Create spatial index for collision detection
+        spatial_index = rtree.index.Index()
+        
+        # Process IP information for IP option
+        ip_elements = []
+        diagram_bottom_y = 0
+        
+        if self.args.ip:
+            # Collect IP information for all devices
+            for device_name, device in sorted_devices:
+                device_lines = [f"{device_name}:"]
+                
+                # Add IP information for each interface
+                for interface_name, ip_info in device.interfaces.items():
+                    # Skip loopback and IRB interfaces
+                    if interface_name in ["lo0"] or interface_name.startswith("irb"):
+                        continue
+                    
+                    # Add IP information with correct format
+                    if ip_info:
+                        device_lines.append(f"  {interface_name}: {ip_info}")
+                
+                if len(device_lines) > 1:  # Only add device if it has IP info
+                    ip_lines.extend(device_lines)
+                    ip_lines.append("")  # Empty line between devices
+            
+            # Remove trailing empty line if exists
+            if ip_lines and ip_lines[-1] == "":
+                ip_lines.pop()
+            
+            # Create single text box for all IP information
+            if len(ip_lines) > 2:  # Only create if there's actual IP info (title + empty line + content)
+                # Calculate text box size based on content with precise auto-scaling
+                max_line_length = max(len(line) for line in ip_lines)
+                # More precise width calculation: 5.5 pixels per character + 15px padding
+                text_width = max(180, int(max_line_length * 5.5 + 15))
+                # More precise height calculation: 14px per line + 25px padding
+                text_height = max(70, len(ip_lines) * 14 + 25)
+                
+                element_id = str(self.next_id)
+                self.next_id += 1
+                
+                # Create content with HTML line breaks for DrawIO
+                ip_text = "<br>".join(ip_lines)
+                escaped_ip_text = self._escape_xml(ip_text)
+                
+                # Create element with light blue background for IP info
+                element = f'''<mxCell id="{element_id}" value="{escaped_ip_text}" style="text;html=1;align=left;verticalAlign=top;whiteSpace=wrap;rounded=0;fontSize=10;fontColor=#000000;fillColor=#e3f2fd;strokeColor=#000000;" vertex="1" parent="1">
+                    <mxGeometry x="50" y="0" width="{text_width}" height="{text_height}" as="geometry"/>
+                  </mxCell>'''
+                
+                # Check for collisions before adding
+                bbox = {'x': 50, 'y': 0, 'w': text_width, 'h': text_height}
+                if not spatial_index.overlaps(bbox):
+                    ip_elements.append(element)
+                    spatial_index.insert(bbox, element_id)
+                
+                diagram_bottom_y += text_height + 15  # Move down for next element
+        
+        return ip_elements
+    
+    def _escape_xml_for_html(self, text: str) -> str:
+        """Escape special characters for XML attributes while preserving HTML tags"""
+        # First escape XML special characters
+        escaped = text.replace('&', '&amp;') \
+                     .replace('<', '&lt;') \
+                     .replace('>', '&gt;') \
+                     .replace('"', '&quot;') \
+                     .replace("'", '&apos;')
+        
+        # Then unescape HTML line breaks so they work in DrawIO
+        escaped = escaped.replace('&lt;br&gt;', '<br>')
+        
+        return escaped
+    
+    def generate_drawio_xml(self, topology: TopologyBuilder) -> str:
+        """Generate complete DrawIO XML with simplified label positioning"""
+        # Calculate layout
+        topology.calculate_layout()
+        
+        # Reset ID counter to ensure clean start
+        self.next_id = 2
+        self.device_id_map.clear()
+        
+        # Store topology reference for accessing device information
+        self.topology = topology
+        
+        # Get sorted list of devices
+        sorted_devices = sorted(topology.devices.items(), key=lambda x: x[0])
+        
+        # Create spatial index for collision detection
+        spatial_index = rtree.index.Index()
+        
+        # Process IP information for IP option
+        ip_elements = []
+        diagram_bottom_y = 0
+        
+        if self.args.ip:
+            # Collect IP information for all devices
+            for device_name, device in sorted_devices:
+                device_lines = [f"{device_name}:"]
+                
+                # Add IP information for each interface
+                for interface_name, ip_info in device.interfaces.items():
+                    # Skip loopback and IRB interfaces
+                    if interface_name in ["lo0"] or interface_name.startswith("irb"):
+                        continue
+                    
+                    # Add IP information with correct format
+                    if ip_info:
+                        device_lines.append(f"  {interface_name}: {ip_info}")
+                
+                if len(device_lines) > 1:  # Only add device if it has IP info
+                    ip_lines.extend(device_lines)
+                    ip_lines.append("")  # Empty line between devices
+            
+            # Remove trailing empty line if exists
+            if ip_lines and ip_lines[-1] == "":
+                ip_lines.pop()
+            
+            # Create single text box for all IP information
+            if len(ip_lines) > 2:  # Only create if there's actual IP info (title + empty line + content)
+                # Calculate text box size based on content with precise auto-scaling
+                max_line_length = max(len(line) for line in ip_lines)
+                # More precise width calculation: 5.5 pixels per character + 15px padding
+                text_width = max(180, int(max_line_length * 5.5 + 15))
+                # More precise height calculation: 14px per line + 25px padding
+                text_height = max(70, len(ip_lines) * 14 + 25)
+                
+                element_id = str(self.next_id)
+                self.next_id += 1
+                
+                # Create content with HTML line breaks for DrawIO
+                ip_text = "<br>".join(ip_lines)
+                escaped_ip_text = self._escape_xml(ip_text)
+                
+                # Create element with light blue background for IP info
+                element = f'''<mxCell id="{element_id}" value="{escaped_ip_text}" style="text;html=1;align=left;verticalAlign=top;whiteSpace=wrap;rounded=0;fontSize=10;fontColor=#000000;fillColor=#e3f2fd;strokeColor=#000000;" vertex="1" parent="1">
+                    <mxGeometry x="50" y="0" width="{text_width}" height="{text_height}" as="geometry"/>
+                  </mxCell>'''
+                
+                # Check for collisions before adding
+                bbox = {'x': 50, 'y': 0, 'w': text_width, 'h': text_height}
+                if not spatial_index.overlaps(bbox):
+                    ip_elements.append(element)
+                    spatial_index.insert(bbox, element_id)
+                
+                diagram_bottom_y += text_height + 15  # Move down for next element
+        
+        return ip_elements
+    
+    def _escape_xml_for_html(self, text: str) -> str:
+        """Escape special characters for XML attributes while preserving HTML tags"""
+        # First escape XML special characters
+        escaped = text.replace('&', '&amp;') \
+                     .replace('<', '&lt;') \
+                     .replace('>', '&gt;') \
+                     .replace('"', '&quot;') \
+                     .replace("'", '&apos;')
+        
+        # Then unescape HTML line breaks so they work in DrawIO
+        escaped = escaped.replace('&lt;br&gt;', '<br>')
+        
+        return escaped
+    
+    def generate_drawio_xml(self, topology: TopologyBuilder) -> str:
+        """Generate complete DrawIO XML with simplified label positioning"""
+        # Calculate layout
+        topology.calculate_layout()
+        
+        # Reset ID counter to ensure clean start
+        self.next_id = 2
+        self.device_id_map.clear()
+        
+        # Store topology reference for accessing device information
+        self.topology = topology
+        
+        # Get sorted list of devices
+        sorted_devices = sorted(topology.devices.items(), key=lambda x: x[0])
+        
+        # Create spatial index for collision detection
+        spatial_index = rtree.index.Index()
+        
+        # Process IP information for IP option
+        ip_elements = []
+        diagram_bottom_y = 0
+        
+        if self.args.ip:
+            # Collect IP information for all devices
+            for device_name, device in sorted_devices:
+                device_lines = [f"{device_name}:"]
+                
+                # Add IP information for each interface
+                for interface_name, ip_info in device.interfaces.items():
+                    # Skip loopback and IRB interfaces
+                    if interface_name in ["lo0"] or interface_name.startswith("irb"):
+                        continue
+                    
+                    # Add IP information with correct format
+                    if ip_info:
+                        device_lines.append(f"  {interface_name}: {ip_info}")
+                
+                if len(device_lines) > 1:  # Only add device if it has IP info
+                    ip_lines.extend(device_lines)
+                    ip_lines.append("")  # Empty line between devices
+            
+            # Remove trailing empty line if exists
+            if ip_lines and ip_lines[-1] == "":
+                ip_lines.pop()
+            
+            # Create single text box for all IP information
+            if len(ip_lines) > 2:  # Only create if there's actual IP info (title + empty line + content)
+                # Calculate text box size based on content with precise auto-scaling
+                max_line_length = max(len(line) for line in ip_lines)
+                # More precise width calculation: 5.5 pixels per character + 15px padding
+                text_width = max(180, int(max_line_length * 5.5 + 15))
+                # More precise height calculation: 14px per line + 25px padding
+                text_height = max(70, len(ip_lines) * 14 + 25)
+                
+                element_id = str(self.next_id)
+                self.next_id += 1
+                
+                # Create content with HTML line breaks for DrawIO
+                ip_text = "<br>".join(ip_lines)
+                escaped_ip_text = self._escape_xml(ip_text)
+                
+                # Create element with light blue background for IP info
+                element = f'''<mxCell id="{element_id}" value="{escaped_ip_text}" style="text;html=1;align=left;verticalAlign=top;whiteSpace=wrap;rounded=0;fontSize=10;fontColor=#000000;fillColor=#e3f2fd;strokeColor=#000000;" vertex="1" parent="1">
+                    <mxGeometry x="50" y="0" width="{text_width}" height="{text_height}" as="geometry"/>
+                  </mxCell>'''
+                
+                # Check for collisions before adding
+                bbox = {'x': 50, 'y': 0, 'w': text_width, 'h': text_height}
+                if not spatial_index.overlaps(bbox):
+                    ip_elements.append(element)
+                    spatial_index.insert(bbox, element_id)
+                
+                diagram_bottom_y += text_height + 15  # Move down for next element
+        
+        return ip_elements
+    
+    def _escape_xml_for_html(self, text: str) -> str:
+        """Escape special characters for XML attributes while preserving HTML tags"""
+        # First escape XML special characters
+        escaped = text.replace('&', '&amp;') \
+                     .replace('<', '&lt;') \
+                     .replace('>', '&gt;') \
+                     .replace('"', '&quot;') \
+                     .replace("'", '&apos;')
+        
+        # Then unescape HTML line breaks so they work in DrawIO
+        escaped = escaped.replace('&lt;br&gt;', '<br>')
+        
+        return escaped
+    
+    def generate_drawio_xml(self, topology: TopologyBuilder) -> str:
+        """Generate complete DrawIO XML with simplified label positioning"""
+        # Calculate layout
+        topology.calculate_layout()
+        
+        # Reset ID counter to ensure clean start
+        self.next_id = 2
+        self.device_id_map.clear()
+        
+        # Store topology reference for accessing device information
+        self.topology = topology
+        
+        # Get sorted list of devices
+        sorted_devices = sorted(topology.devices.items(), key=lambda x: x[0])
+        
+        # Create spatial index for collision detection
+        spatial_index = rtree.index.Index()
+        
+        # Process IP information for IP option
+        ip_elements = []
+        diagram_bottom_y = 0
+        
+        if self.args.ip:
+            # Collect IP information for all devices
+            for device_name, device in sorted_devices:
+                device_lines = [f"{device_name}:"]
+                
+                # Add IP information for each interface
+                for interface_name, ip_info in device.interfaces.items():
+                    # Skip loopback and IRB interfaces
+                    if interface_name in ["lo0"] or interface_name.startswith("irb"):
+                        continue
+                    
+                    # Add IP information with correct format
+                    if ip_info:
+                        device_lines.append(f"  {interface_name}: {ip_info}")
+                
+                if len(device_lines) > 1:  # Only add device if it has IP info
+                    ip_lines.extend(device_lines)
+                    ip_lines.append("")  # Empty line between devices
+            
+            # Remove trailing empty line if exists
+            if ip_lines and ip_lines[-1] == "":
+                ip_lines.pop()
+            
+            # Create single text box for all IP information
+            if len(ip_lines) > 2:  # Only create if there's actual IP info (title + empty line + content)
+                # Calculate text box size based on content with precise auto-scaling
+                max_line_length = max(len(line) for line in ip_lines)
+                # More precise width calculation: 5.5 pixels per character + 15px padding
+                text_width = max(180, int(max_line_length * 5.5 + 15))
+                # More precise height calculation: 14px per line + 25px padding
+                text_height = max(70, len(ip_lines) * 14 + 25)
+                
+                element_id = str(self.next_id)
+                self.next_id += 1
+                
+                # Create content with HTML line breaks for DrawIO
+                ip_text = "<br>".join(ip_lines)
+                escaped_ip_text = self._escape_xml(ip_text)
+                
+                # Create element with light blue background for IP info
+                element = f'''<mxCell id="{element_id}" value="{escaped_ip_text}" style="text;html=1;align=left;verticalAlign=top;whiteSpace=wrap;rounded=0;fontSize=10;fontColor=#000000;fillColor=#e3f2fd;strokeColor=#000000;" vertex="1" parent="1">
+                    <mxGeometry x="50" y="0" width="{text_width}" height="{text_height}" as="geometry"/>
+                  </mxCell>'''
+                
+                # Check for collisions before adding
+                bbox = {'x': 50, 'y': 0, 'w': text_width, 'h': text_height}
+                if not spatial_index.overlaps(bbox):
+                    ip_elements.append(element)
+                    spatial_index.insert(bbox, element_id)
+                
+                diagram_bottom_y += text_height + 15  # Move down for next element
+        
+        return ip_elements
+    
+    def _escape_xml_for_html(self, text: str) -> str:
+        """Escape special characters for XML attributes while preserving HTML tags"""
+        # First escape XML special characters
+        escaped = text.replace('&', '&amp;') \
+                     .replace('<', '&lt;') \
+                     .replace('>', '&gt;') \
+                     .replace('"', '&quot;') \
+                     .replace("'", '&apos;')
+        
+        # Then unescape HTML line breaks so they work in DrawIO
+        escaped = escaped.replace('&lt;br&gt;', '<br>')
+        
+        return escaped
+    
+    def generate_drawio_xml(self, topology: TopologyBuilder) -> str:
+        """Generate complete DrawIO XML with simplified label positioning"""
+        # Calculate layout
+        topology.calculate_layout()
+        
+        # Reset ID counter to ensure clean start
+        self.next_id = 2
+        self.device_id_map.clear()
+        
+        # Store topology reference for accessing device information
+        self.topology = topology
+        
+        # Get sorted list of devices
+        sorted_devices = sorted(topology.devices.items(), key=lambda x: x[0])
+        
+        # Create spatial index for collision detection
+        spatial_index = rtree.index.Index()
+        
+        # Process IP information for IP option
+        ip_elements = []
+        diagram_bottom_y = 0
+        
+        if self.args.ip:
+            # Collect IP information for all devices
+            for device_name, device in sorted_devices:
+                device_lines = [f"{device_name}:"]
+                
+                # Add IP information for each interface
+                for interface_name, ip_info in device.interfaces.items():
+                    # Skip loopback and IRB interfaces
+                    if interface_name in ["lo0"] or interface_name.startswith("irb"):
+                        continue
+                    
+                    # Add IP information with correct format
+                    if ip_info:
+                        device_lines.append(f"  {interface_name}: {ip_info}")
+                
+                if len(device_lines) > 1:  # Only add device if it has IP info
+                    ip_lines.extend(device_lines)
+                    ip_lines.append("")  # Empty line between devices
+            
+            # Remove trailing empty line if exists
+            if ip_lines and ip_lines[-1] == "":
+                ip_lines.pop()
+            
+            # Create single text box for all IP information
+            if len(ip_lines) > 2:  # Only create if there's actual IP info (title + empty line + content)
+                # Calculate text box size based on content with precise auto-scaling
+                max_line_length = max(len(line) for line in ip_lines)
+                # More precise width calculation: 5.5 pixels per character + 15px padding
+                text_width = max(180, int(max_line_length * 5.5 + 15))
+                # More precise height calculation: 14px per line + 25px padding
+                text_height = max(70, len(ip_lines) * 14 + 25)
+                
+                element_id = str(self.next_id)
+                self.next_id += 1
+                
+                # Create content with HTML line breaks for DrawIO
+                ip_text = "<br>".join(ip_lines)
+                escaped_ip_text = self._escape_xml(ip_text)
+                
+                # Create element with light blue background for IP info
+                element = f'''<mxCell id="{element_id}" value="{escaped_ip_text}" style="text;html=1;align=left;verticalAlign=top;whiteSpace=wrap;rounded=0;fontSize=10;fontColor=#000000;fillColor=#e3f2fd;strokeColor=#000000;" vertex="1" parent="1">
+                    <mxGeometry x="50" y="0" width="{text_width}" height="{text_height}" as="geometry"/>
+                  </mxCell>'''
+                
+                # Check for collisions before adding
+                bbox = {'x': 50, 'y': 0, 'w': text_width, 'h': text_height}
+                if not spatial_index.overlaps(bbox):
+                    ip_elements.append(element)
+                    spatial_index.insert(bbox, element_id)
+                
+                diagram_bottom_y += text_height + 15  # Move down for next element
+        
+        return ip_elements
+    
+    def _escape_xml_for_html(self, text: str) -> str:
+        """Escape special characters for XML attributes while preserving HTML tags"""
+        # First escape XML special characters
+        escaped = text.replace('&', '&amp;') \
+                     .replace('<', '&lt;') \
+                     .replace('>', '&gt;') \
+                     .replace('"', '&quot;') \
+                     .replace("'", '&apos;')
+        
+        # Then unescape HTML line breaks so they work in DrawIO
+        escaped = escaped.replace('&lt;br&gt;', '<br>')
+        
+        return escaped
+    
+    def generate_drawio_xml(self, topology: TopologyBuilder) -> str:
+        """Generate complete DrawIO XML with simplified label positioning"""
+        # Calculate layout
+        topology.calculate_layout()
+        
+        # Reset ID counter to ensure clean start
+        self.next_id = 2
+        self.device_id_map.clear()
+        
+        # Store topology reference for accessing device information
+        self.topology = topology
+        
+        # Get sorted list of devices
+        sorted_devices = sorted(topology.devices.items(), key=lambda x: x[0])
+        
+        # Create spatial index for collision detection
+        spatial_index = rtree.index.Index()
+        
+        # Process IP information for IP option
+        ip_elements = []
+        diagram_bottom_y = 0
+        
+        if self.args.ip:
+            # Collect IP information for all devices
+            for device_name, device in sorted_devices:
+                device_lines = [f"{device_name}:"]
+                
+                # Add IP information for each interface
+                for interface_name, ip_info in device.interfaces.items():
+                    # Skip loopback and IRB interfaces
+                    if interface_name in ["lo0"] or interface_name.startswith("irb"):
+                        continue
+                    
+                    # Add IP information with correct format
+                    if ip_info:
+                        device_lines.append(f"  {interface_name}: {ip_info}")
+                
+                if len(device_lines) > 1:  # Only add device if it has IP info
+                    ip_lines.extend(device_lines)
+                    ip_lines.append("")  # Empty line between devices
+            
+            # Remove trailing empty line if exists
+            if ip_lines and ip_lines[-1] == "":
+                ip_lines.pop()
+            
+            # Create single text box for all IP information
+            if len(ip_lines) > 2:  # Only create if there's actual IP info (title + empty line + content)
+                # Calculate text box size based on content with precise auto-scaling
+                max_line_length = max(len(line) for line in ip_lines)
+                # More precise width calculation: 5.5 pixels per character + 15px padding
+                text_width = max(180, int(max_line_length * 5.5 + 15))
+                # More precise height calculation: 14px per line + 25px padding
+                text_height = max(70, len(ip_lines) * 14 + 25)
+                
+                element_id = str(self.next_id)
+                self.next_id += 1
+                
+                # Create content with HTML line breaks for DrawIO
+                ip_text = "<br>".join(ip_lines)
+                escaped_ip_text = self._escape_xml(ip_text)
+                
+                # Create element with light blue background for IP info
+                element = f'''<mxCell id="{element_id}" value="{escaped_ip_text}" style="text;html=1;align=left;verticalAlign=top;whiteSpace=wrap;rounded=0;fontSize=10;fontColor=#000000;fillColor=#e3f2fd;strokeColor=#000000;" vertex="1" parent="1">
+                    <mxGeometry x="50" y="0" width="{text_width}" height="{text_height}" as="geometry"/>
+                  </mxCell>'''
+                
+                # Check for collisions before adding
+                bbox = {'x': 50, 'y': 0, 'w': text_width, 'h': text_height}
+                if not spatial_index.overlaps(bbox):
+                    ip_elements.append(element)
+                    spatial_index.insert(bbox, element_id)
+                
+                diagram_bottom_y += text_height + 15  # Move down for next element
+        
+        return ip_elements
+    
+    def _escape_xml_for_html(self, text: str) -> str:
+        """Escape special characters for XML attributes while preserving HTML tags"""
+        # First escape XML special characters
+        escaped = text.replace('&', '&amp;') \
+                     .replace('<', '&lt;') \
+                     .replace('>', '&gt;') \
+                     .replace('"', '&quot;') \
+                     .replace("'", '&apos;')
+        
+        # Then unescape HTML line breaks so they work in DrawIO
+        escaped = escaped.replace('&lt;br&gt;', '<br>')
+        
+        return escaped
+    
+    def generate_drawio_xml(self, topology: TopologyBuilder) -> str:
+        """Generate complete DrawIO XML with simplified label positioning"""
+        # Calculate layout
+        topology.calculate_layout()
+        
+        # Reset ID counter to ensure clean start
+        self.next_id = 2
+        self.device_id_map.clear()
+        
+        # Store topology reference for accessing device information
+        self.topology = topology
+        
+        # Get sorted list of devices
+        sorted_devices = sorted(topology.devices.items(), key=lambda x: x[0])
+        
+        # Create spatial index for collision detection
+        spatial_index = rtree.index.Index()
+        
+        # Process IP information for IP option
+        ip_elements = []
+        diagram_bottom_y = 0
+        
+        if self.args.ip:
+            # Collect IP information for all devices
+            for device_name, device in sorted_devices:
+                device_lines = [f"{device_name}:"]
+                
+                # Add IP information for each interface
+                for interface_name, ip_info in device.interfaces.items():
+                    # Skip loopback and IRB interfaces
+                    if interface_name in ["lo0"] or interface_name.startswith("irb"):
+                        continue
+                    
+                    # Add IP information with correct format
+                    if ip_info:
+                        device_lines.append(f"  {interface_name}: {ip_info}")
+                
+                if len(device_lines) > 1:  # Only add device if it has IP info
+                    ip_lines.extend(device_lines)
+                    ip_lines.append("")  # Empty line between devices
+            
+            # Remove trailing empty line if exists
+            if ip_lines and ip_lines[-1] == "":
+                ip_lines.pop()
+            
+            # Create single text box for all IP information
+            if len(ip_lines) > 2:  # Only create if there's actual IP info (title + empty line + content)
+                # Calculate text box size based on content with precise auto-scaling
+                max_line_length = max(len(line) for line in ip_lines)
+                # More precise width calculation: 5.5 pixels per character + 15px padding
+                text_width = max(180, int(max_line_length * 5.5 + 15))
+                # More precise height calculation: 14px per line + 25px padding
+                text_height = max(70, len(ip_lines) * 14 + 25)
+                
+                element_id = str(self.next_id)
+                self.next_id += 1
+                
+                # Create content with HTML line breaks for DrawIO
+                ip_text = "<br>".join(ip_lines)
+                escaped_ip_text = self._escape_xml(ip_text)
+                
+                # Create element with light blue background for IP info
+                element = f'''<mxCell id="{element_id}" value="{escaped_ip_text}" style="text;html=1;align=left;verticalAlign=top;whiteSpace=wrap;rounded=0;fontSize=10;fontColor=#000000;fillColor=#e3f2fd;strokeColor=#000000;" vertex="1" parent="1">
+                    <mxGeometry x="50" y="0" width="{text_width}" height="{text_height}" as="geometry"/>
+                  </mxCell>'''
+                
+                # Check for collisions before adding
+                bbox = {'x': 50, 'y': 0, 'w': text_width, 'h': text_height}
+                if not spatial_index.overlaps(bbox):
+                    ip_elements.append(element)
+                    spatial_index.insert(bbox, element_id)
+                
+                diagram_bottom_y += text_height + 15  # Move down for next element
+        
+        return ip_elements
+    
+    def _escape_xml_for_html(self, text: str) -> str:
+        """Escape special characters for XML attributes while preserving HTML tags"""
+        # First escape XML special characters
+        escaped = text.replace('&', '&amp;') \
+                     .replace('<', '&lt;') \
+                     .replace('>', '&gt;') \
+                     .replace('"', '&quot;') \
+                     .replace("'", '&apos;')
+        
+        # Then unescape HTML line breaks so they work in DrawIO
+        escaped = escaped.replace('&lt;br&gt;', '<br>')
+        
+        return escaped
+    
+    def generate_drawio_xml(self, topology: TopologyBuilder) -> str:
+        """Generate complete DrawIO XML with simplified label positioning"""
+        # Calculate layout
+        topology.calculate_layout()
+        
+        # Reset ID counter to ensure clean start
+        self.next_id = 2
+        self.device_id_map.clear()
+        
+        # Store topology reference for accessing device information
+        self.topology = topology
+        
+        # Get sorted list of devices
+        sorted_devices = sorted(topology.devices.items(), key=lambda x: x[0])
+        
+        # Create spatial index for collision detection
+        spatial_index = rtree.index.Index()
+        
+        # Process IP information for IP option
+        ip_elements = []
+        diagram_bottom_y = 0
+        
+        if self.args.ip:
+            # Collect IP information for all devices
+            for device_name, device in sorted_devices:
+                device_lines = [f"{device_name}:"]
+                
+                # Add IP information for each interface
+                for interface_name, ip_info in device.interfaces.items():
+                    # Skip loopback and IRB interfaces
+                    if interface_name in ["lo0"] or interface_name.startswith("irb"):
+                        continue
+                    
+                    # Add IP information with correct format
+                    if ip_info:
+                        device_lines.append(f"  {interface_name}: {ip_info}")
+                
+                if len(device_lines) > 1:  # Only add device if it has IP info
+                    ip_lines.extend(device_lines)
+                    ip_lines.append("")  # Empty line between devices
+            
+            # Remove trailing empty line if exists
+            if ip_lines and ip_lines[-1] == "":
+                ip_lines.pop()
+            
+            # Create single text box for all IP information
+            if len(ip_lines) > 2:  # Only create if there's actual IP info (title + empty line + content)
+                # Calculate text box size based on content with precise auto-scaling
+                max_line_length = max(len(line) for line in ip_lines)
+                # More precise width calculation: 5.5 pixels per character + 15px padding
+                text_width = max(180, int(max_line_length * 5.5 + 15))
+                # More precise height calculation: 14px per line + 25px padding
+                text_height = max(70, len(ip_lines) * 14 + 25)
+                
+                element_id = str(self.next_id)
+                self.next_id += 1
+                
+                # Create content with HTML line breaks for DrawIO
+                ip_text = "<br>".join(ip_lines)
+                escaped_ip_text = self._escape_xml(ip_text)
+                
+                # Create element with light blue background for IP info
+                element = f'''<mxCell id="{element_id}" value="{escaped_ip_text}" style="text;html=1;align=left;verticalAlign=top;whiteSpace=wrap;rounded=0;fontSize=10;fontColor=#000000;fillColor=#e3f2fd;strokeColor=#000000;" vertex="1" parent="1">
+                    <mxGeometry x="50" y="0" width="{text_width}" height="{text_height}" as="geometry"/>
+                  </mxCell>'''
+                
+                # Check for collisions before adding
+                bbox = {'x': 50, 'y': 0, 'w': text_width, 'h': text_height}
+                if not spatial_index.overlaps(bbox):
+                    ip_elements.append(element)
+                    spatial_index.insert(bbox, element_id)
+                
+                diagram_bottom_y += text_height + 15  # Move down for next element
+        
+        return ip_elements
+    
+    def _escape_xml_for_html(self, text: str) -> str:
+        """Escape special characters for XML attributes while preserving HTML tags"""
+        # First escape XML special characters
+        escaped = text.replace('&', '&amp;') \
+                     .replace('<', '&lt;') \
+                     .replace('>', '&gt;') \
+                     .replace('"', '&quot;') \
+                     .replace("'", '&apos;')
+        
+        # Then unescape HTML line breaks so they work in DrawIO
+        escaped = escaped.replace('&lt;br&gt;', '<br>')
+        
+        return escaped
+    
+    def generate_drawio_xml(self, topology: TopologyBuilder) -> str:
+        """Generate complete DrawIO XML with simplified label positioning"""
+        # Calculate layout
+        topology.calculate_layout()
+        
+        # Reset ID counter to ensure clean start
+        self.next_id = 2
+        self.device_id_map.clear()
+        
+        # Store topology reference for accessing device information
+        self.topology = topology
+        
+        # Get sorted list of devices
+        sorted_devices = sorted(topology.devices.items(), key=lambda x: x[0])
+        
+        # Create spatial index for collision detection
+        spatial_index = rtree.index.Index()
+        
+        # Process IP information for IP option
+        ip_elements = []
+        diagram_bottom_y = 0
+        
+        if self.args.ip:
+            # Collect IP information for all devices
+            for device_name, device in sorted_devices:
+                device_lines = [f"{device_name}:"]
+                
+                # Add IP information for each interface
+                for interface_name, ip_info in device.interfaces.items():
+                    # Skip loopback and IRB interfaces
+                    if interface_name in ["lo0"] or interface_name.startswith("irb"):
+                        continue
+                    
+                    # Add IP information with correct format
+                    if ip_info:
+                        device_lines.append(f"  {interface_name}: {ip_info}")
+                
+                if len(device_lines) > 1:  # Only add device if it has IP info
+                    ip_lines.extend(device_lines)
+                    ip_lines.append("")  # Empty line between devices
+            
+            # Remove trailing empty line if exists
+            if ip_lines and ip_lines[-1] == "":
+                ip_lines.pop()
+            
+            # Create single text box for all IP information
+            if len(ip_lines) > 2:  # Only create if there's actual IP info (title + empty line + content)
+                # Calculate text box size based on content with precise auto-scaling
+                max_line_length = max(len(line) for line in ip_lines)
+                # More precise width calculation: 5.5 pixels per character + 15px padding
+                text_width = max(180, int(max_line_length * 5.5 + 15))
+                # More precise height calculation: 14px per line + 25px padding
+                text_height = max(70, len(ip_lines) * 14 + 25)
+                
+                element_id = str(self.next_id)
+                self.next_id += 1
+                
+                # Create content with HTML line breaks for DrawIO
+                ip_text = "<br>".join(ip_lines)
+                escaped_ip_text = self._escape_xml(ip_text)
+                
+                # Create element with light blue background for IP info
+                element = f'''<mxCell id="{element_id}" value="{escaped_ip_text}" style="text;html=1;align=left;verticalAlign=top;whiteSpace=wrap;rounded=0;fontSize=10;fontColor=#000000;fillColor=#e3f2fd;strokeColor=#000000;" vertex="1" parent="1">
+                    <mxGeometry x="50" y="0" width="{text_width}" height="{text_height}" as="geometry"/>
+                  </mxCell>'''
+                
+                # Check for collisions before adding
+                bbox = {'x': 50, 'y': 0, 'w': text_width, 'h': text_height}
+                if not spatial_index.overlaps(bbox):
+                    ip_elements.append(element)
+                    spatial_index.insert(bbox, element_id)
+                
+                diagram_bottom_y += text_height + 15  # Move down for next element
+        
+        return ip_elements
+    
+    def _escape_xml_for_html(self, text: str) -> str:
+        """Escape special characters for XML attributes while preserving HTML tags"""
+        # First escape XML special characters
+        escaped = text.replace('&', '&amp;') \
+                     .replace('<', '&lt;') \
+                     .replace('>', '&gt;') \
+                     .replace('"', '&quot;') \
+                     .replace("'", '&apos;')
+        
+        # Then unescape HTML line breaks so they work in DrawIO
+        escaped = escaped.replace('&lt;br&gt;', '<br>')
+        
+        return escaped
+    
+    def generate_drawio_xml(self, topology: TopologyBuilder) -> str:
+        """Generate complete DrawIO XML with simplified label positioning"""
+        # Calculate layout
+        topology.calculate_layout()
+        
+        # Reset ID counter to ensure clean start
+        self.next_id = 2
+        self.device_id_map.clear()
+        
+        # Store topology reference for accessing device information
+        self.topology = topology
+        
+        # Get sorted list of devices
+        sorted_devices = sorted(topology.devices.items(), key=lambda x: x[0])
+        
+        # Create spatial index for collision detection
+        spatial_index = rtree.index.Index()
+        
+        # Process IP information for IP option
+        ip_elements = []
+        diagram_bottom_y = 0
+        
+        if self.args.ip:
+            # Collect IP information for all devices
+            for device_name, device in sorted_devices:
+                device_lines = [f"{device_name}:"]
+                
+                # Add IP information for each interface
+                for interface_name, ip_info in device.interfaces.items():
+                    # Skip loopback and IRB interfaces
+                    if interface_name in ["lo0"] or interface_name.startswith("irb"):
+                        continue
+                    
+                    # Add IP information with correct format
+                    if ip_info:
+                        device_lines.append(f"  {interface_name}: {ip_info}")
+                
+                if len(device_lines) > 1:  # Only add device if it has IP info
+                    ip_lines.extend(device_lines)
+                    ip_lines.append("")  # Empty line between devices
+            
+            # Remove trailing empty line if exists
+            if ip_lines and ip_lines[-1] == "":
+                ip_lines.pop()
+            
+            # Create single text box for all IP information
+            if len(ip_lines) > 2:  # Only create if there's actual IP info (title + empty line + content)
+                # Calculate text box size based on content with precise auto-scaling
+                max_line_length = max(len(line) for line in ip_lines)
+                # More precise width calculation: 5.5 pixels per character + 15px padding
+                text_width = max(180, int(max_line_length * 5.5 + 15))
+                # More precise height calculation: 14px per line + 25px padding
+                text_height = max(70, len(ip_lines) * 14 + 25)
+                
+                element_id = str(self.next_id)
+                self.next_id += 1
+                
+                # Create content with HTML line breaks for DrawIO
+                ip_text = "<br>".join(ip_lines)
+                escaped_ip_text = self._escape_xml(ip_text)
+                
+                # Create element with light blue background for IP info
+                element = f'''<mxCell id="{element_id}" value="{escaped_ip_text}" style="text;html=1;align=left;verticalAlign=top;whiteSpace=wrap;rounded=0;fontSize=10;fontColor=#000000;fillColor=#e3f2fd;strokeColor=#000000;" vertex="1" parent="1">
+                    <mxGeometry x="50" y="0" width="{text_width}" height="{text_height}" as="geometry"/>
+                  </mxCell>'''
+                
+                # Check for collisions before adding
+                bbox = {'x': 50, 'y': 0, 'w': text_width, 'h': text_height}
+                if not spatial_index.overlaps(bbox):
+                    ip_elements.append(element)
+                    spatial_index.insert(bbox, element_id)
+                
+                diagram_bottom_y += text_height + 15  # Move down for next element
+        
+        return ip_elements
+    
+    def _escape_xml_for_html(self, text: str) -> str:
+        """Escape special characters for XML attributes while preserving HTML tags"""
+        # First escape XML special characters
+        escaped = text.replace('&', '&amp;') \
+                     .replace('<', '&lt;') \
+                     .replace('>', '&gt;') \
+                     .replace('"', '&quot;') \
+                     .replace("'", '&apos;')
+        
+        # Then unescape HTML line breaks so they work in DrawIO
+        escaped = escaped.replace('&lt;br&gt;', '<br>')
+        
+        return escaped
+    
+    def generate_drawio_xml(self, topology: TopologyBuilder) -> str:
+        """Generate complete DrawIO XML with simplified label positioning"""
+        # Calculate layout
+        topology.calculate_layout()
+        
+        # Reset ID counter to ensure clean start
+        self.next_id = 2
+        self.device_id_map.clear()
+        
+        # Store topology reference for accessing device information
+        self.topology = topology
+        
+        # Get sorted list of devices
+        sorted_devices = sorted(topology.devices.items(), key=lambda x: x[0])
+        
+        # Create spatial index for collision detection
+        spatial_index = rtree.index.Index()
+        
+        # Process IP information for IP option
+        ip_elements = []
+        diagram_bottom_y = 0
+        
+        if self.args.ip:
+            # Collect IP information for all devices
+            for device_name, device in sorted_devices:
+                device_lines = [f"{device_name}:"]
+                
+                # Add IP information for each interface
+                for interface_name, ip_info in device.interfaces.items():
+                    # Skip loopback and IRB interfaces
+                    if interface_name in ["lo0"] or interface_name.startswith("irb"):
+                        continue
+                    
+                    # Add IP information with correct format
+                    if ip_info:
+                        device_lines.append(f"  {interface_name}: {ip_info}")
+                
+                if len(device_lines) > 1:  # Only add device if it has IP info
+                    ip_lines.extend(device_lines)
+                    ip_lines.append("")  # Empty line between devices
+            
+            # Remove trailing empty line if exists
+            if ip_lines and ip_lines[-1] == "":
+                ip_lines.pop()
+            
+            # Create single text box for all IP information
+            if len(ip_lines) > 2:  # Only create if there's actual IP info (title + empty line + content)
+                # Calculate text box size based on content with precise auto-scaling
+                max_line_length = max(len(line) for line in ip_lines)
+                # More precise width calculation: 5.5 pixels per character + 15px padding
+                text_width = max(180, int(max_line_length * 5.5 + 15))
+                # More precise height calculation: 14px per line + 25px padding
+                text_height = max(70, len(ip_lines) * 14 + 25)
+                
+                element_id = str(self.next_id)
+                self.next_id += 1
+                
+                # Create content with HTML line breaks for DrawIO
+                ip_text = "<br>".join(ip_lines)
+                escaped_ip_text = self._escape_xml(ip_text)
+                
+                # Create element with light blue background for IP info
+                element = f'''<mxCell id="{element_id}" value="{escaped_ip_text}" style="text;html=1;align=left;verticalAlign=top;whiteSpace=wrap;rounded=0;fontSize=10;fontColor=#000000;fillColor=#e3f2fd;strokeColor=#000000;" vertex="1" parent="1">
+                    <mxGeometry x="50" y="0" width="{text_width}" height="{text_height}" as="geometry"/>
+                  </mxCell>'''
+                
+                # Check for collisions before adding
+                bbox = {'x': 50, 'y': 0, 'w': text_width, 'h': text_height}
+                if not spatial_index.overlaps(bbox):
+                    ip_elements.append(element)
+                    spatial_index.insert(bbox, element_id)
+                
+                diagram_bottom_y += text_height + 15  # Move down for next element
+        
+        return ip_elements
+    
+    def _escape_xml_for_html(self, text: str) -> str:
+        """Escape special characters for XML attributes while preserving HTML tags"""
+        # First escape XML special characters
+        escaped = text.replace('&', '&amp;') \
+                     .replace('<', '&lt;') \
+                     .replace('>', '&gt;') \
+                     .replace('"', '&quot;') \
+                     .replace("'", '&apos;')
+        
+        # Then unescape HTML line breaks so they work in DrawIO
+        escaped = escaped.replace('&lt;br&gt;', '<br>')
+        
+        return escaped
+    
+    def generate_drawio_xml(self, topology: TopologyBuilder) -> str:
+        """Generate complete DrawIO XML with simplified label positioning"""
+        # Calculate layout
+        topology.calculate_layout()
+        
+        # Reset ID counter to ensure clean start
+        self.next_id = 2
+        self.device_id_map.clear()
+        
+        # Store topology reference for accessing device information
+        self.topology = topology
+        
+        # Get sorted list of devices
+        sorted_devices = sorted(topology.devices.items(), key=lambda x: x[0])
+        
+        # Create spatial index for collision detection
+        spatial_index = rtree.index.Index()
+        
+        # Process IP information for IP option
+        ip_elements = []
+        diagram_bottom_y = 0
+        
+        if self.args.ip:
+            # Collect IP information for all devices
+            for device_name, device in sorted_devices:
+                device_lines = [f"{device_name}:"]
+                
+                # Add IP information for each interface
+                for interface_name, ip_info in device.interfaces.items():
+                    # Skip loopback and IRB interfaces
+                    if interface_name in ["lo0"] or interface_name.startswith("irb"):
+                        continue
+                    
+                    # Add IP information with correct format
+                    if ip_info:
+                        device_lines.append(f"  {interface_name}: {ip_info}")
+                
+                if len(device_lines) > 1:  # Only add device if it has IP info
+                    ip_lines.extend(device_lines)
+                    ip_lines.append("")  # Empty line between devices
+            
+            # Remove trailing empty line if exists
+            if ip_lines and ip_lines[-1] == "":
+                ip_lines.pop()
+            
+            # Create single text box for all IP information
+            if len(ip_lines) > 2:  # Only create if there's actual IP info (title + empty line + content)
+                # Calculate text box size based on content with precise auto-scaling
+                max_line_length = max(len(line) for line in ip_lines)
+                # More precise width calculation: 5.5 pixels per character + 15px padding
+                text_width = max(180, int(max_line_length * 5.5 + 15))
+                # More precise height calculation: 14px per line + 25px padding
+                text_height = max(70, len(ip_lines) * 14 + 25)
+                
+                element_id = str(self.next_id)
+                self.next_id += 1
+                
+                # Create content with HTML line breaks for DrawIO
+                ip_text = "<br>".join(ip_lines)
+                escaped_ip_text = self._escape_xml(ip_text)
+                
+                # Create element with light blue background for IP info
+                element = f'''<mxCell id="{element_id}" value="{escaped_ip_text}" style="text;html=1;align=left;verticalAlign=top;whiteSpace=wrap;rounded=0;fontSize=10;fontColor=#000000;fillColor=#e3f2fd;strokeColor=#000000;" vertex="1" parent="1">
+                    <mxGeometry x="50" y="0" width="{text_width}" height="{text_height}" as="geometry"/>
+                  </mxCell>'''
+                
+                # Check for collisions before adding
+                bbox = {'x': 50, 'y': 0, 'w': text_width, 'h': text_height}
+                if not spatial_index.overlaps(bbox):
+                    ip_elements.append(element)
+                    spatial_index.insert(bbox, element_id)
+                
+                diagram_bottom_y += text_height + 15  # Move down for next element
+        
+        return ip_elements
+    
+    def _escape_xml_for_html(self, text: str) -> str:
+        """Escape special characters for XML attributes while preserving HTML tags"""
+        # First escape XML special characters
+        escaped = text.replace('&', '&amp;') \
+                     .replace('<', '&lt;') \
+                     .replace('>', '&gt;') \
+                     .replace('"', '&quot;') \
+                     .replace("'", '&apos;')
+        
+        # Then unescape HTML line breaks so they work in DrawIO
+        escaped = escaped.replace('&lt;br&gt;', '<br>')
+        
+        return escaped
+    
+    def generate_drawio_xml(self, topology: TopologyBuilder) -> str:
+        """Generate complete DrawIO XML with simplified label positioning"""
+        # Calculate layout
+        topology.calculate_layout()
+        
+        # Reset ID counter to ensure clean start
+        self.next_id = 2
+        self.device_id_map.clear()
+        
+        # Store topology reference for accessing device information
+        self.topology = topology
+        
+        # Get sorted list of devices
+        sorted_devices = sorted(topology.devices.items(), key=lambda x: x[0])
+        
+        # Create spatial index for collision detection
+        spatial_index = rtree.index.Index()
+        
+        # Process IP information for IP option
+        ip_elements = []
+        diagram_bottom_y = 0
+        
+        if self.args.ip:
+            # Collect IP information for all devices
+            for device_name, device in sorted_devices:
+                device_lines = [f"{device_name}:"]
+                
+                # Add IP information for each interface
+                for interface_name, ip_info in device.interfaces.items():
+                    # Skip loopback and IRB interfaces
+                    if interface_name in ["lo0"] or interface_name.startswith("irb"):
+                        continue
+                    
+                    # Add IP information with correct format
+                    if ip_info:
+                        device_lines.append(f"  {interface_name}: {ip_info}")
+                
+                if len(device_lines) > 1:  # Only add device if it has IP info
+                    ip_lines.extend(device_lines)
+                    ip_lines.append("")  # Empty line between devices
+            
+            # Remove trailing empty line if exists
+            if ip_lines and ip_lines[-1] == "":
+                ip_lines.pop()
+            
+            # Create single text box for all IP information
+            if len(ip_lines) > 2:  # Only create if there's actual IP info (title + empty line + content)
+                # Calculate text box size based on content with precise auto-scaling
+                max_line_length = max(len(line) for line in ip_lines)
+                # More precise width calculation: 5.5 pixels per character + 15px padding
+                text_width = max(180, int(max_line_length * 5.5 + 15))
+                # More precise height calculation: 14px per line + 25px padding
+                text_height = max(70, len(ip_lines) * 14 + 25)
+                
+                element_id = str(self.next_id)
+                self.next_id += 1
+                
+                # Create content with HTML line breaks for DrawIO
+                ip_text = "<br>".join(ip_lines)
+                escaped_ip_text = self._escape_xml(ip_text)
+                
+                # Create element with light blue background for IP info
+                element = f'''<mxCell id="{element_id}" value="{escaped_ip_text}" style="text;html=1;align=left;verticalAlign=top;whiteSpace=wrap;rounded=0;fontSize=10;fontColor=#000000;fillColor=#e3f2fd;strokeColor=#000000;" vertex="1" parent="1">
+                    <mxGeometry x="50" y="0" width="{text_width}" height="{text_height}" as="geometry"/>
+                  </mxCell>'''
+                
+                # Check for collisions before adding
+                bbox = {'x': 50, 'y': 0, 'w': text_width, 'h': text_height}
+                if not spatial_index.overlaps(bbox):
+                    ip_elements.append(element)
+                    spatial_index.insert(bbox, element_id)
+                
+                diagram_bottom_y += text_height + 15  # Move down for next element
+        
+        return ip_elements
+    
+    def _escape_xml_for_html(self, text: str) -> str:
+        """Escape special characters for XML attributes while preserving HTML tags"""
+        # First escape XML special characters
+        escaped = text.replace('&', '&amp;') \
+                     .replace('<', '&lt;') \
+                     .replace('>', '&gt;') \
+                     .replace('"', '&quot;') \
+                     .replace("'", '&apos;')
+        
+        # Then unescape HTML line breaks so they work in DrawIO
+        escaped = escaped.replace('&lt;br&gt;', '<br>')
+        
+        return escaped
+    
+    def generate_drawio_xml(self, topology: TopologyBuilder) -> str:
+        """Generate complete DrawIO XML with simplified label positioning"""
+        # Calculate layout
+        topology.calculate_layout()
+        
+        # Reset ID counter to ensure clean start
+        self.next_id = 2
+        self.device_id_map.clear()
+        
+        # Store topology reference for accessing device information
+        self.topology = topology
+        
+        # Get sorted list of devices
+        sorted_devices = sorted(topology.devices.items(), key=lambda x: x[0])
+        
+        # Create spatial index for collision detection
+        spatial_index = rtree.index.Index()
+        
+        # Process IP information for IP option
+        ip_elements = []
+        diagram_bottom_y = 0
+        
+        if self.args.ip:
+            # Collect IP information for all devices
+            for device_name, device in sorted_devices:
+                device_lines = [f"{device_name}:"]
+                
+                # Add IP information for each interface
+                for interface_name, ip_info in device.interfaces.items():
+                    # Skip loopback and IRB interfaces
+                    if interface_name in ["lo0"] or interface_name.startswith("irb"):
+                        continue
+                    
+                    # Add IP information with correct format
+                    if ip_info:
+                        device_lines.append(f"  {interface_name}: {ip_info}")
+                
+                if len(device_lines) > 1:  # Only add device if it has IP info
+                    ip_lines.extend(device_lines)
+                    ip_lines.append("")  # Empty line between devices
+            
+            # Remove trailing empty line if exists
+            if ip_lines and ip_lines[-1] == "":
+                ip_lines.pop()
+            
+            # Create single text box for all IP information
+            if len(ip_lines) > 2:  # Only create if there's actual IP info (title + empty line + content)
+                # Calculate text box size based on content with precise auto-scaling
+                max_line_length = max(len(line) for line in ip_lines)
+                # More precise width calculation: 5.5 pixels per character + 15px padding
+                text_width = max(180, int(max_line_length * 5.5 + 15))
+                # More precise height calculation: 14px per line + 25px padding
+                text_height = max(70, len(ip_lines) * 14 + 25)
+                
+                element_id = str(self.next_id)
+                self.next_id += 1
+                
+                # Create content with HTML line breaks for DrawIO
+                ip_text = "<br>".join(ip_lines)
+                escaped_ip_text = self._escape_xml(ip_text)
+                
+                # Create element with light blue background for IP info
+                element = f'''<mxCell id="{element_id}" value="{escaped_ip_text}" style="text;html=1;align=left;verticalAlign=top;whiteSpace=wrap;rounded=0;fontSize=10;fontColor=#000000;fillColor=#e3f2fd;strokeColor=#000000;" vertex="1" parent="1">
+                    <mxGeometry x="50" y="0" width="{text_width}" height="{text_height}" as="geometry"/>
+                  </mxCell>'''
+                
+                # Check for collisions before adding
+                bbox = {'x': 50, 'y': 0, 'w': text_width, 'h': text_height}
+                if not spatial_index.overlaps(bbox):
+                    ip_elements.append(element)
+                    spatial_index.insert(bbox, element_id)
+                
+                diagram_bottom_y += text_height + 15  # Move down for next element
+        
+        return ip_elements
+    
+    def _escape_xml_for_html(self, text: str) -> str:
+        """Escape special characters for XML attributes while preserving HTML tags"""
+        # First escape XML special characters
+        escaped = text.replace('&', '&amp;') \
+                     .replace('<', '&lt;') \
+                     .replace('>', '&gt;') \
+                     .replace('"', '&quot;') \
+                     .replace("'", '&apos;')
+        
+        # Then unescape HTML line breaks so they work in DrawIO
+        escaped = escaped.replace('&lt;br&gt;', '<br>')
+        
+        return escaped
+    
+    def generate_drawio_xml(self, topology: TopologyBuilder) -> str:
+        """Generate complete DrawIO XML with simplified label positioning"""
+        # Calculate layout
+        topology.calculate_layout()
+        
+        # Reset ID counter to ensure clean start
+        self.next_id = 2
+        self.device_id_map.clear()
+        
+        # Store topology reference for accessing device information
+        self.topology = topology
+        
+        # Get sorted list of devices
+        sorted_devices = sorted(topology.devices.items(), key=lambda x: x[0])
+        
+        # Create spatial index for collision detection
+        spatial_index = rtree.index.Index()
+        
+        # Process IP information for IP option
+        ip_elements = []
+        diagram_bottom_y = 0
+        
+        if self.args.ip:
+            # Collect IP information for all devices
+            for device_name, device in sorted_devices:
+                device_lines = [f"{device_name}:"]
+                
+                # Add IP information for each interface
+                for interface_name, ip_info in device.interfaces.items():
+                    # Skip loopback and IRB interfaces
+                    if interface_name in ["lo0"] or interface_name.startswith("irb"):
+                        continue
+                    
+                    # Add IP information with correct format
+                    if ip_info:
+                        device_lines.append(f"  {interface_name}: {ip_info}")
+                
+                if len(device_lines) > 1:  # Only add device if it has IP info
+                    ip_lines.extend(device_lines)
+                    ip_lines.append("")  # Empty line between devices
+            
+            # Remove trailing empty line if exists
+            if ip_lines and ip_lines[-1] == "":
+                ip_lines.pop()
+            
+            # Create single text box for all IP information
+            if len(ip_lines) > 2:  # Only create if there's actual IP info (title + empty line + content)
+                # Calculate text box size based on content with precise auto-scaling
+                max_line_length = max(len(line) for line in ip_lines)
+                # More precise width calculation: 5.5 pixels per character + 15px padding
+                text_width = max(180, int(max_line_length * 5.5 + 15))
+                # More precise height calculation: 14px per line + 25px padding
+                text_height = max(70, len(ip_lines) * 14 + 25)
+                
+                element_id = str(self.next_id)
+                self.next_id += 1
+                
+                # Create content with HTML line breaks for DrawIO
+                ip_text = "<br>".join(ip_lines)
+                escaped_ip_text = self._escape_xml(ip_text)
+                
+                # Create element with light blue background for IP info
+                element = f'''<mxCell id="{element_id}" value="{escaped_ip_text}" style="text;html=1;align=left;verticalAlign=top;whiteSpace=wrap;rounded=0;fontSize=10;fontColor=#000000;fillColor=#e3f2fd;strokeColor=#000000;" vertex="1" parent="1">
+                    <mxGeometry x="50" y="0" width="{text_width}" height="{text_height}" as="geometry"/>
+                  </mxCell>'''
+                
+                # Check for collisions before adding
+                bbox = {'x': 50, 'y': 0, 'w': text_width, 'h': text_height}
+                if not spatial_index.overlaps(bbox):
+                    ip_elements.append(element)
+                    spatial_index.insert(bbox, element_id)
+                
+                diagram_bottom_y += text_height + 15  # Move down for next element
+        
+        return ip_elements
+    
+    def _escape_xml_for_html(self, text: str) -> str:
+        """Escape special characters for XML attributes while preserving HTML tags"""
+        # First escape XML special characters
+        escaped = text.replace('&', '&amp;') \
+                     .replace('<', '&lt;') \
+                     .replace('>', '&gt;') \
+                     .replace('"', '&quot;') \
+                     .replace("'", '&apos;')
+        
+        # Then unescape HTML line breaks so they work in DrawIO
+        escaped = escaped.replace('&lt;br&gt;', '<br>')
+        
+        return escaped
+    
+    def generate_drawio_xml(self, topology: TopologyBuilder) -> str:
+        """Generate complete DrawIO XML with simplified label positioning"""
+        # Calculate layout
+        topology.calculate_layout()
+        
+        # Reset ID counter to ensure clean start
+        self.next_id = 2
+        self.device_id_map.clear()
+        
+        # Store topology reference for accessing device information
+        self.topology = topology
+        
+        # Get sorted list of devices
+        sorted_devices = sorted(topology.devices.items(), key=lambda x: x[0])
+        
+        # Create spatial index for collision detection
+        spatial_index = rtree.index.Index()
+        
+        # Process IP information for IP option
+        ip_elements = []
+        diagram_bottom_y = 0
+        
+        if self.args.ip:
+            # Collect IP information for all devices
+            for device_name, device in sorted_devices:
+                device_lines = [f"{device_name}:"]
+                
+                # Add IP information for each interface
+                for interface_name, ip_info in device.interfaces.items():
+                    # Skip loopback and IRB interfaces
+                    if interface_name in ["lo0"] or interface_name.startswith("irb"):
+                        continue
+                    
+                    # Add IP information with correct format
+                    if ip_info:
+                        device_lines.append(f"  {interface_name}: {ip_info}")
+                
+                if len(device_lines) > 1:  # Only add device if it has IP info
+                    ip_lines.extend(device_lines)
+                    ip_lines.append("")  # Empty line between devices
+            
+            # Remove trailing empty line if exists
+            if ip_lines and ip_lines[-1] == "":
+                ip_lines.pop()
+            
+            # Create single text box for all IP information
+            if len(ip_lines) > 2:  # Only create if there's actual IP info (title + empty line + content)
+                # Calculate text box size based on content with precise auto-scaling
+                max_line_length = max(len(line) for line in ip_lines)
+                # More precise width calculation: 5.5 pixels per character + 15px padding
+                text_width = max(180, int(max_line_length * 5.5 + 15))
+                # More precise height calculation: 14px per line + 25px padding
+                text_height = max(70, len(ip_lines) * 14 + 25)
+                
+                element_id = str(self.next_id)
+                self.next_id += 1
+                
+                # Create content with HTML line breaks for DrawIO
+                ip_text = "<br>".join(ip_lines)
+                escaped_ip_text = self._escape_xml(ip_text)
+                
+                # Create element with light blue background for IP info
+                element = f'''<mxCell id="{element_id}" value="{escaped_ip_text}" style="text;html=1;align=left;verticalAlign=top;whiteSpace=wrap;rounded=0;fontSize=10;fontColor=#000000;fillColor=#e3f2fd;strokeColor=#000000;" vertex="1" parent="1">
+                    <mxGeometry x="50" y="0" width="{text_width}" height="{text_height}" as="geometry"/>
+                  </mxCell>'''
+                
+                # Check for collisions before adding
+                bbox = {'x': 50, 'y': 0, 'w': text_width, 'h': text_height}
+                if not spatial_index.overlaps(bbox):
+                    ip_elements.append(element)
+                    spatial_index.insert(bbox, element_id)
+                
+                diagram_bottom_y += text_height + 15  # Move down for next element
+        
+        return ip_elements
+    
+    def _escape_xml_for_html(self, text: str) -> str:
+        """Escape special characters for XML attributes while preserving HTML tags"""
+        # First escape XML special characters
+        escaped = text.replace('&', '&amp;') \
+                     .replace('<', '&lt;') \
+                     .replace('>', '&gt;') \
+                     .replace('"', '&quot;') \
+                     .replace("'", '&apos;')
+        
+        # Then unescape HTML line breaks so they work in DrawIO
+        escaped = escaped.replace('&lt;br&gt;', '<br>')
+        
+        return escaped
+    
+    def generate_drawio_xml(self, topology: TopologyBuilder) -> str:
+        """Generate complete DrawIO XML with simplified label positioning"""
+        # Calculate layout
+        topology.calculate_layout()
+        
+        # Reset ID counter to ensure clean start
+        self.next_id = 2
+        self.device_id_map.clear()
+        
+        # Store topology reference for accessing device information
+        self.topology = topology
+        
+        # Get sorted list of devices
+        sorted_devices = sorted(topology.devices.items(), key=lambda x: x[0])
+        
+        # Create spatial index for collision detection
+        spatial_index = rtree.index.Index()
+        
+        # Process IP information for IP option
+        ip_elements = []
+        diagram_bottom_y = 0
+        
+        if self.args.ip:
+            # Collect IP information for all devices
+            for device_name, device in sorted_devices:
+                device_lines = [f"{device_name}:"]
+                
+                # Add IP information for each interface
+                for interface_name, ip_info in device.interfaces.items():
+                    # Skip loopback and IRB interfaces
+                    if interface_name in ["lo0"] or interface_name.startswith("irb"):
+                        continue
+                    
+                    # Add IP information with correct format
+                    if ip_info:
+                        device_lines.append(f"  {interface_name}: {ip_info}")
+                
+                if len(device_lines) > 1:  # Only add device if it has IP info
+                    ip_lines.extend(device_lines)
+                    ip_lines.append("")  # Empty line between devices
+            
+            # Remove trailing empty line if exists
+            if ip_lines and ip_lines[-1] == "":
+                ip_lines.pop()
+            
+            # Create single text box for all IP information
+            if len(ip_lines) > 2:  # Only create if there's actual IP info (title + empty line + content)
+                # Calculate text box size based on content with precise auto-scaling
+                max_line_length = max(len(line) for line in ip_lines)
+                # More precise width calculation: 5.5 pixels per character + 15px padding
+                text_width = max(180, int(max_line_length * 5.5 + 15))
+                # More precise height calculation: 14px per line + 25px padding
+                text_height = max(70, len(ip_lines) * 14 + 25)
+                
+                element_id = str(self.next_id)
+                self.next_id += 1
+                
+                # Create content with HTML line breaks for DrawIO
+                ip_text = "<br>".join(ip_lines)
+                escaped_ip_text = self._escape_xml(ip_text)
+                
+                # Create element with light blue background for IP info
+                element = f'''<mxCell id="{element_id}" value="{escaped_ip_text}" style="text;html=1;align=left;verticalAlign=top;whiteSpace=wrap;rounded=0;fontSize=10;fontColor=#000000;fillColor=#e3f2fd;strokeColor=#000000;" vertex="1" parent="1">
+                    <mxGeometry x="50" y="0" width="{text_width}" height="{text_height}" as="geometry"/>
+                  </mxCell>'''
+                
+                # Check for collisions before adding
+                bbox = {'x': 50, 'y': 0, 'w': text_width, 'h': text_height}
+                if not spatial_index.overlaps(bbox):
+                    ip_elements.append(element)
+                    spatial_index.insert(bbox, element_id)
+                
+                diagram_bottom_y += text_height + 15  # Move down for next element
+        
+        return ip_elements
+    
+    def _escape_xml_for_html(self, text: str) -> str:
+        """Escape special characters for XML attributes while preserving HTML tags"""
+        # First escape XML special characters
+        escaped = text.replace('&', '&amp;') \
+                     .replace('<', '&lt;') \
+                     .replace('>', '&gt;') \
+                     .replace('"', '&quot;') \
+                     .replace("'", '&apos;')
+        
+        # Then unescape HTML line breaks so they work in DrawIO
+        escaped = escaped.replace('&lt;br&gt;', '<br>')
+        
+        return escaped
+    
+    def generate_drawio_xml(self, topology: TopologyBuilder) -> str:
+        """Generate complete DrawIO XML with simplified label positioning"""
+        # Calculate layout
+        topology.calculate_layout()
+        
+        # Reset ID counter to ensure clean start
+        self.next_id = 2
+        self.device_id_map.clear()
+        
+        # Store topology reference for accessing device information
+        self.topology = topology
+        
+        # Get sorted list of devices
+        sorted_devices = sorted(topology.devices.items(), key=lambda x: x[0])
+        
+        # Create spatial index for collision detection
+        spatial_index = rtree.index.Index()
+        
+        # Process IP information for IP option
+        ip_elements = []
+        diagram_bottom_y = 0
+        
+        if self.args.ip:
+            # Collect IP information for all devices
+            for device_name, device in sorted_devices:
+                device_lines = [f"{device_name}:"]
+                
+                # Add IP information for each interface
+                for interface_name, ip_info in device.interfaces.items():
+                    # Skip loopback and IRB interfaces
+                    if interface_name in ["lo0"] or interface_name.startswith("irb"):
+                        continue
+                    
+                    # Add IP information with correct format
+                    if ip_info:
+                        device_lines.append(f"  {interface_name}: {ip_info}")
+                
+                if len(device_lines) > 1:  # Only add device if it has IP info
+                    ip_lines.extend(device_lines)
+                    ip_lines.append("")  # Empty line between devices
+            
+            # Remove trailing empty line if exists
+            if ip_lines and ip_lines[-1] == "":
+                ip_lines.pop()
+            
+            # Create single text box for all IP information
+            if len(ip_lines) > 2:  # Only create if there's actual IP info (title + empty line + content)
+                # Calculate text box size based on content with precise auto-scaling
+                max_line_length = max(len(line) for line in ip_lines)
+                # More precise width calculation: 5.5 pixels per character + 15px padding
+                text_width = max(180, int(max_line_length * 5.5 + 15))
+                # More precise height calculation: 14px per line + 25px padding
+                text_height = max(70, len(ip_lines) * 14 + 25)
+                
+                element_id = str(self.next_id)
+                self.next_id += 1
+                
+                # Create content with HTML line breaks for DrawIO
+                ip_text = "<br>".join(ip_lines)
+                escaped_ip_text = self._escape_xml(ip_text)
+                
+                # Create element with light blue background for IP info
+                element = f'''<mxCell id="{element_id}" value="{escaped_ip_text}" style="text;html=1;align=left;verticalAlign=top;whiteSpace=wrap;rounded=0;fontSize=10;fontColor=#000000;fillColor=#e3f2fd;strokeColor=#000000;" vertex="1" parent="1">
+                    <mxGeometry x="50" y="0" width="{text_width}" height="{text_height}" as="geometry"/>
+                  </mxCell>'''
+                
+                # Check for collisions before adding
+                bbox = {'x': 50, 'y': 0, 'w': text_width, 'h': text_height}
+                if not spatial_index.overlaps(bbox):
+                    ip_elements.append(element)
+                    spatial_index.insert(bbox, element_id)
+                
+                diagram_bottom_y += text_height + 15  # Move down for next element
+        
+        return ip_elements
+    
+    def _escape_xml_for_html(self, text: str) -> str:
+        """Escape special characters for XML attributes while preserving HTML tags"""
+        # First escape XML special characters
+        escaped = text.replace('&', '&amp;') \
+                     .replace('<', '&lt;') \
+                     .replace('>', '&gt;') \
+                     .replace('"', '&quot;') \
+                     .replace("'", '&apos;')
+        
+        # Then unescape HTML line breaks so they work in DrawIO
+        escaped = escaped.replace('&lt;br&gt;', '<br>')
+        
+        return escaped
+    
+    def generate_drawio_xml(self, topology: TopologyBuilder) -> str:
+        """Generate complete DrawIO XML with simplified label positioning"""
+        # Calculate layout
+        topology.calculate_layout()
+        
+        # Reset ID counter to ensure clean start
+        self.next_id = 2
+        self.device_id_map.clear()
+        
+        # Store topology reference for accessing device information
+        self.topology = topology
+        
+        # Get sorted list of devices
+        sorted_devices = sorted(topology.devices.items(), key=lambda x: x[0])
+        
+        # Create spatial index for collision detection
+        spatial_index = rtree.index.Index()
+        
+        # Process IP information for IP option
+        ip_elements = []
+        diagram_bottom_y = 0
+        
+        if self.args.ip:
+            # Collect IP information for all devices
+            for device_name, device in sorted_devices:
+                device_lines = [f"{device_name}:"]
+                
+                # Add IP information for each interface
+                for interface_name, ip_info in device.interfaces.items():
+                    # Skip loopback and IRB interfaces
+                    if interface_name in ["lo0"] or interface_name.startswith("irb"):
+                        continue
+                    
+                    # Add IP information with correct format
+                    if ip_info:
+                        device_lines.append(f"  {interface_name}: {ip_info}")
+                
+                if len(device_lines) > 1:  # Only add device if it has IP info
+                    ip_lines.extend(device_lines)
+                    ip_lines.append("")  # Empty line between devices
+            
+            # Remove trailing empty line if exists
+            if ip_lines and ip_lines[-1] == "":
+                ip_lines.pop()
+            
+            # Create single text box for all IP information
+            if len(ip_lines) > 2:  # Only create if there's actual IP info (title + empty line + content)
+                # Calculate text box size based on content with precise auto-scaling
+                max_line_length = max(len(line) for line in ip_lines)
+                # More precise width calculation: 5.5 pixels per character + 15px padding
+                text_width = max(180, int(max_line_length * 5.5 + 15))
+                # More precise height calculation: 14px per line + 25px padding
+                text_height = max(70, len(ip_lines) * 14 + 25)
+                
+                element_id = str(self.next_id)
+                self.next_id += 1
+                
+                # Create content with HTML line breaks for DrawIO
+                ip_text = "<br>".join(ip_lines)
+                escaped_ip_text = self._escape_xml(ip_text)
+                
+                # Create element with light blue background for IP info
+                element = f'''<mxCell id="{element_id}" value="{escaped_ip_text}" style="text;html=1;align=left;verticalAlign=top;whiteSpace=wrap;rounded=0;fontSize=10;fontColor=#000000;fillColor=#e3f2fd;strokeColor=#000000;" vertex="1" parent="1">
+                    <mxGeometry x="50" y="0" width="{text_width}" height="{text_height}" as="geometry"/>
+                  </mxCell>'''
+                
+                # Check for collisions before adding
+                bbox = {'x': 50, 'y': 0, 'w': text_width, 'h': text_height}
+                if not spatial_index.overlaps(bbox):
+                    ip_elements.append(element)
+                    spatial_index.insert(bbox, element_id)
+                
+                diagram_bottom_y += text_height + 15  # Move down for next element
+        
+        return ip_elements
+    
+    def _escape_xml_for_html(self, text: str) -> str:
+        """Escape special characters for XML attributes while preserving HTML tags"""
+        # First escape XML special characters
+        escaped = text.replace('&', '&amp;') \
+                     .replace('<', '&lt;') \
+                     .replace('>', '&gt;') \
+                     .replace('"', '&quot;') \
+                     .replace("'", '&apos;')
+        
+        # Then unescape HTML line breaks so they work in DrawIO
+        escaped = escaped.replace('&lt;br&gt;', '<br>')
+        
+        return escaped
+    
+    def generate_drawio_xml(self, topology: TopologyBuilder) -> str:
+        """Generate complete DrawIO XML with simplified label positioning"""
+        # Calculate layout
+        topology.calculate_layout()
+        
+        # Reset ID counter to ensure clean start
+        self.next_id = 2
+        self.device_id_map.clear()
+        
+        # Store topology reference for accessing device information
+        self.topology = topology
+        
+        # Get sorted list of devices
+        sorted_devices = sorted(topology.devices.items(), key=lambda x: x[0])
+        
+        # Create spatial index for collision detection
+        spatial_index = rtree.index.Index()
+        
+        # Process IP information for IP option
+        ip_elements = []
+        diagram_bottom_y = 0
+        
+        if self.args.ip:
+            # Collect IP information for all devices
+            for device_name, device in sorted_devices:
+                device_lines = [f"{device_name}:"]
+                
+                # Add IP information for each interface
+                for interface_name, ip_info in device.interfaces.items():
+                    # Skip loopback and IRB interfaces
+                    if interface_name in ["lo0"] or interface_name.startswith("irb"):
+                        continue
+                    
+                    # Add IP information with correct format
+                    if ip_info:
+                        device_lines.append(f"  {interface_name}: {ip_info}")
+                
+                if len(device_lines) > 1:  # Only add device if it has IP info
+                    ip_lines.extend(device_lines)
+                    ip_lines.append("")  # Empty line between devices
+            
+            # Remove trailing empty line if exists
+            if ip_lines and ip_lines[-1] == "":
+                ip_lines.pop()
+            
+            # Create single text box for all IP information
+            if len(ip_lines) > 2:  # Only create if there's actual IP info (title + empty line + content)
+                # Calculate text box size based on content with precise auto-scaling
+                max_line_length = max(len(line) for line in ip_lines)
+                # More precise width calculation: 5.5 pixels per character + 15px padding
+                text_width = max(180, int(max_line_length * 5.5 + 15))
+                # More precise height calculation: 14px per line + 25px padding
+                text_height = max(70, len(ip_lines) * 14 + 25)
+                
+                element_id = str(self.next_id)
+                self.next_id += 1
+                
+                # Create content with HTML line breaks for DrawIO
+                ip_text = "<br>".join(ip_lines)
+                escaped_ip_text = self._escape_xml(ip_text)
+                
+                # Create element with light blue background for IP info
+                element = f'''<mxCell id="{element_id}" value="{escaped_ip_text}" style="text;html=1;align=left;verticalAlign=top;whiteSpace=wrap;rounded=0;fontSize=10;fontColor=#000000;fillColor=#e3f2fd;strokeColor=#000000;" vertex="1" parent="1">
+                    <mxGeometry x="50" y="0" width="{text_width}" height="{text_height}" as="geometry"/>
+                  </mxCell>'''
+                
+                # Check for collisions before adding
+                bbox = {'x': 50, 'y': 0, 'w': text_width, 'h': text_height}
+                if not spatial_index.overlaps(bbox):
+                    ip_elements.append(element)
+                    spatial_index.insert(bbox, element_id)
+                
+                diagram_bottom_y += text_height + 15  # Move down for next element
+        
+        return ip_elements
+    
+    def _escape_xml_for_html(self, text: str) -> str:
+        """Escape special characters for XML attributes while preserving HTML tags"""
+        # First escape XML special characters
+        escaped = text.replace('&', '&amp;') \
+                     .replace('<', '&lt;') \
+                     .replace('>', '&gt;') \
+                     .replace('"', '&quot;') \
+                     .replace("'", '&apos;')
+        
+        # Then unescape HTML line breaks so they work in DrawIO
+        escaped = escaped.replace('&lt;br&gt;', '<br>')
+        
+        return escaped
+    
+    def generate_drawio_xml(self, topology: TopologyBuilder) -> str:
+        """Generate complete DrawIO XML with simplified label positioning"""
+        # Calculate layout
+        topology.calculate_layout()
+        
+        # Reset ID counter to ensure clean start
+        self.next_id = 2
+        self.device_id_map.clear()
+        
+        # Store topology reference for accessing device information
+        self.topology = topology
+        
+        # Get sorted list of devices
+        sorted_devices = sorted(topology.devices.items(), key=lambda x: x[0])
+        
+        # Create spatial index for collision detection
+        spatial_index = rtree.index.Index()
+        
+        # Process IP information for IP option
+        ip_elements = []
+        diagram_bottom_y = 0
+        
+        if self.args.ip:
+            # Collect IP information for all devices
+            for device_name, device in sorted_devices:
+                device_lines = [f"{device_name}:"]
+                
+                # Add IP information for each interface
+                for interface_name, ip_info in device.interfaces.items():
+                    # Skip loopback and IRB interfaces
+                    if interface_name in ["lo0"] or interface_name.startswith("irb"):
+                        continue
+                    
+                    # Add IP information with correct format
+                    if ip_info:
+                        device_lines.append(f"  {interface_name}: {ip_info}")
+                
+                if len(device_lines) > 1:  # Only add device if it has IP info
+                    ip_lines.extend(device_lines)
+                    ip_lines.append("")  # Empty line between devices
+            
+            # Remove trailing empty line if exists
+            if ip_lines and ip_lines[-1] == "":
+                ip_lines.pop()
+            
+            # Create single text box for all IP information
+            if len(ip_lines) > 2:  # Only create if there's actual IP info (title + empty line + content)
+                # Calculate text box size based on content with precise auto-scaling
+                max_line_length = max(len(line) for line in ip_lines)
+                # More precise width calculation: 5.5 pixels per character + 15px padding
+                text_width = max(180, int(max_line_length * 5.5 + 15))
+                # More precise height calculation: 14px per line + 25px padding
+                text_height = max(70, len(ip_lines) * 14 + 25)
+                
+                element_id = str(self.next_id)
+                self.next_id += 1
+                
+                # Create content with HTML line breaks for DrawIO
+                ip_text = "<br>".join(ip_lines)
+                escaped_ip_text = self._escape_xml(ip_text)
+                
+                # Create element with light blue background for IP info
+                element = f'''<mxCell id="{element_id}" value="{escaped_ip_text}" style="text;html=1;align=left;verticalAlign=top;whiteSpace=wrap;rounded=0;fontSize=10;fontColor=#000000;fillColor=#e3f2fd;strokeColor=#000000;" vertex="1" parent="1">
+                    <mxGeometry x="50" y="0" width="{text_width}" height="{text_height}" as="geometry"/>
+                  </mxCell>'''
+                
+                # Check for collisions before adding
+                bbox = {'x': 50, 'y': 0, 'w': text_width, 'h': text_height}
+                if not spatial_index.overlaps(bbox):
+                    ip_elements.append(element)
+                    spatial_index.insert(bbox, element_id)
+                
+                diagram_bottom_y += text_height + 15  # Move down for next element
+        
+        return ip_elements
+    
+    def _escape_xml_for_html(self, text: str) -> str:
+        """Escape special characters for XML attributes while preserving HTML tags"""
+        # First escape XML special characters
+        escaped = text.replace('&', '&amp;') \
+                     .replace('<', '&lt;') \
+                     .replace('>', '&gt;') \
+                     .replace('"', '&quot;') \
+                     .replace("'", '&apos;')
+        
+        # Then unescape HTML line breaks so they work in DrawIO
+        escaped = escaped.replace('&lt;br&gt;', '<br>')
+        
+        return escaped
+    
+    def generate_drawio_xml(self, topology: TopologyBuilder) -> str:
+        """Generate complete DrawIO XML with simplified label positioning"""
+        # Calculate layout
+        topology.calculate_layout()
+        
+        # Reset ID counter to ensure clean start
+        self.next_id = 2
+        self.device_id_map.clear()
+        
+        # Store topology reference for accessing device information
+        self.topology = topology
+        
+        # Get sorted list of devices
+        sorted_devices = sorted(topology.devices.items(), key=lambda x: x[0])
+        
+        # Create spatial index for collision detection
+        spatial_index = rtree.index.Index()
+        
+        # Process IP information for IP option
+        ip_elements = []
+        diagram_bottom_y = 0
+        
+        if self.args.ip:
+            # Collect IP information for all devices
+            for device_name, device in sorted_devices:
+                device_lines = [f"{device_name}:"]
+                
+                # Add IP information for each interface
+                for interface_name, ip_info in device.interfaces.items():
+                    # Skip loopback and IRB interfaces
+                    if interface_name in ["lo0"] or interface_name.startswith("irb"):
+                        continue
+                    
+                    # Add IP information with correct format
+                    if ip_info:
+                        device_lines.append(f"  {interface_name}: {ip_info}")
+                
+                if len(device_lines) > 1:  # Only add device if it has IP info
+                    ip_lines.extend(device_lines)
+                    ip_lines.append("")  # Empty line between devices
+            
+            # Remove trailing empty line if exists
+            if ip_lines and ip_lines[-1] == "":
+                ip_lines.pop()
+            
+            # Create single text box for all IP information
+            if len(ip_lines) > 2:  # Only create if there's actual IP info (title + empty line + content)
+                # Calculate text box size based on content with precise auto-scaling
+                max_line_length = max(len(line) for line in ip_lines)
+                # More precise width calculation: 5.5 pixels per character + 15px padding
+                text_width = max(180, int(max_line_length * 5.5 + 15))
+                # More precise height calculation: 14px per line + 25px padding
+                text_height = max(70, len(ip_lines) * 14 + 25)
+                
+                element_id = str(self.next_id)
+                self.next_id += 1
+                
+                # Create content with HTML line breaks for DrawIO
+                ip_text = "<br>".join(ip_lines)
+                escaped_ip_text = self._escape_xml(ip_text)
+                
+                # Create element with light blue background for IP info
+                element = f'''<mxCell id="{element_id}" value="{escaped_ip_text}" style="text;html=1;align=left;verticalAlign=top;whiteSpace=wrap;rounded=0;fontSize=10;fontColor=#000000;fillColor=#e3f2fd;strokeColor=#000000;" vertex="1" parent="1">
+                    <mxGeometry x="50" y="0" width="{text_width}" height="{text_height}" as="geometry"/>
+                  </mxCell>'''
+                
+                # Check for collisions before adding
+                bbox = {'x': 50, 'y': 0, 'w': text_width, 'h': text_height}
+                if not spatial_index.overlaps(bbox):
+                    ip_elements.append(element)
+                    spatial_index.insert(bbox, element_id)
+                
+                diagram_bottom_y += text_height + 15  # Move down for next element
+        
+        return ip_elements
+    
+    def _escape_xml_for_html(self, text: str) -> str:
+        """Escape special characters for XML attributes while preserving HTML tags"""
+        # First escape XML special characters
+        escaped = text.replace('&', '&amp;') \
+                     .replace('<', '&lt;') \
+                     .replace('>', '&gt;') \
+                     .replace('"', '&quot;') \
+                     .replace("'", '&apos;')
+        
+        # Then unescape HTML line breaks so they work in DrawIO
+        escaped = escaped.replace('&lt;br&gt;', '<br>')
+        
+        return escaped
+    
+    def generate_drawio_xml(self, topology: TopologyBuilder) -> str:
+        """Generate complete DrawIO XML with simplified label positioning"""
+        # Calculate layout
+        topology.calculate_layout()
+        
+        # Reset ID counter to ensure clean start
+        self.next_id = 2
+        self.device_id_map.clear()
+        
+        # Store topology reference for accessing device information
+        self.topology = topology
+        
+        # Get sorted list of devices
+        sorted_devices = sorted(topology.devices.items(), key=lambda x: x[0])
+        
+        # Create spatial index for collision detection
+        spatial_index = rtree.index.Index()
+        
+        # Process IP information for IP option
+        ip_elements = []
+        diagram_bottom_y = 0
+        
+        if self.args.ip:
+            # Collect IP information for all devices
+            for device_name, device in sorted_devices:
+                device_lines = [f"{device_name}:"]
+                
+                # Add IP information for each interface
+                for interface_name, ip_info in device.interfaces.items():
+                    # Skip loopback and IRB interfaces
+                    if interface_name in ["lo0"] or interface_name.startswith("irb"):
+                        continue
+                    
+                    # Add IP information with correct format
+                    if ip_info:
+                        device_lines.append(f"  {interface_name}: {ip_info}")
+                
+                if len(device_lines) > 1:  # Only add device if it has IP info
+                    ip_lines.extend(device_lines)
+                    ip_lines.append("")  # Empty line between devices
+            
+            # Remove trailing empty line if exists
+            if ip_lines and ip_lines[-1] == "":
+                ip_lines.pop()
+            
+            # Create single text box for all IP information
+            if len(ip_lines) > 2:  # Only create if there's actual IP info (title + empty line + content)
+                # Calculate text box size based on content with precise auto-scaling
+                max_line_length = max(len(line) for line in ip_lines)
+                # More precise width calculation: 5.5 pixels per character + 15px padding
+                text_width = max(180, int(max_line_length * 5.5 + 15))
+                # More precise height calculation: 14px per line + 25px padding
+                text_height = max(70, len(ip_lines) * 14 + 25)
+                
+                element_id = str(self.next_id)
+                self.next_id += 1
+                
+                # Create content with HTML line breaks for DrawIO
+                ip_text = "<br>".join(ip_lines)
+                escaped_ip_text = self._escape_xml(ip_text)
+                
+                # Create element with light blue background for IP info
+                element = f'''<mxCell id="{element_id}" value="{escaped_ip_text}" style="text;html=1;align=left;verticalAlign=top;whiteSpace=wrap;rounded=0;fontSize=10;fontColor=#000000;fillColor=#e3f2fd;strokeColor=#000000;" vertex="1" parent="1">
+                    <mxGeometry x="50" y="0" width="{text_width}" height="{text_height}" as="geometry"/>
+                  </mxCell>'''
+                
+                # Check for collisions before adding
+                bbox = {'x': 50, 'y': 0, 'w': text_width, 'h': text_height}
+                if not spatial_index.overlaps(bbox):
+                    ip_elements.append(element)
+                    spatial_index.insert(bbox, element_id)
+                
+                diagram_bottom_y += text_height + 15  # Move down for next element
+        
+        return ip_elements
+    
+    def _escape_xml_for_html(self, text: str) -> str:
+        """Escape special characters for XML attributes while preserving HTML tags"""
+        # First escape XML special characters
+        escaped = text.replace('&', '&amp;') \
+                     .replace('<', '&lt;') \
+                     .replace('>', '&gt;') \
+                     .replace('"', '&quot;') \
+                     .replace("'", '&apos;')
+        
+        # Then unescape HTML line breaks so they work in DrawIO
+        escaped = escaped.replace('&lt;br&gt;', '<br>')
+        
+        return escaped
+    
+    def generate_drawio_xml(self, topology: TopologyBuilder) -> str:
+        """Generate complete DrawIO XML with simplified label positioning"""
+        # Calculate layout
+        topology.calculate_layout()
+        
+        # Reset ID counter to ensure clean start
+        self.next_id = 2
+        self.device_id_map.clear()
+        
+        # Store topology reference for accessing device information
+        self.topology = topology
+        
+        # Get sorted list of devices
+        sorted_devices = sorted(topology.devices.items(), key=lambda x: x[0])
+        
+        # Create spatial index for collision detection
+        spatial_index = rtree.index.Index()
+        
+        # Process IP information for IP option
+        ip_elements = []
+        diagram_bottom_y = 0
+        
+        if self.args.ip:
+            # Collect IP information for all devices
+            for device_name, device in sorted_devices:
+                device_lines = [f"{device_name}:"]
+                
+                # Add IP information for each interface
+                for interface_name, ip_info in device.interfaces.items():
+                    # Skip loopback and IRB interfaces
+                    if interface_name in ["lo0"] or interface_name.startswith("irb"):
+                        continue
+                    
+                    # Add IP information with correct format
+                    if ip_info:
+                        device_lines.append(f"  {interface_name}: {ip_info}")
+                
+                if len(device_lines) > 1:  # Only add device if it has IP info
+                    ip_lines.extend(device_lines)
+                    ip_lines.append("")  # Empty line between devices
+            
+            # Remove trailing empty line if exists
+            if ip_lines and ip_lines[-1] == "":
+                ip_lines.pop()
+            
+            # Create single text box for all IP information
+            if len(ip_lines) > 2:  # Only create if there's actual IP info (title + empty line + content)
+                # Calculate text box size based on content with precise auto-scaling
+                max_line_length = max(len(line) for line in ip_lines)
+                # More precise width calculation: 5.5 pixels per character + 15px padding
+                text_width = max(180, int(max_line_length * 5.5 + 15))
+                # More precise height calculation: 14px per line + 25px padding
+                text_height = max(70, len(ip_lines) * 14 + 25)
+                
+                element_id = str(self.next_id)
+                self.next_id += 1
+                
+                # Create content with HTML line breaks for DrawIO
+                ip_text = "<br>".join(ip_lines)
+                escaped_ip_text = self._escape_xml(ip_text)
+                
+                # Create element with light blue background for IP info
+                element = f'''<mxCell id="{element_id}" value="{escaped_ip_text}" style="text;html=1;align=left;verticalAlign=top;whiteSpace=wrap;rounded=0;fontSize=10;fontColor=#000000;fillColor=#e3f2fd;strokeColor=#000000;" vertex="1" parent="1">
+                    <mxGeometry x="50" y="0" width="{text_width}" height="{text_height}" as="geometry"/>
+                  </mxCell>'''
+                
+                # Check for collisions before adding
+                bbox = {'x': 50, 'y': 0, 'w': text_width, 'h': text_height}
+                if not spatial_index.overlaps(bbox):
+                    ip_elements.append(element)
+                    spatial_index.insert(bbox, element_id)
+                
+                diagram_bottom_y += text_height + 15  # Move down for next element
+        
+        return ip_elements
+    
+    def _escape_xml_for_html(self, text: str) -> str:
+        """Escape special characters for XML attributes while preserving HTML tags"""
+        # First escape XML special characters
+        escaped = text.replace('&', '&amp;') \
+                     .replace('<', '&lt;') \
+                     .replace('>', '&gt;') \
+                     .replace('"', '&quot;') \
+                     .replace("'", '&apos;')
+        
+        # Then unescape HTML line breaks so they work in DrawIO
+        escaped = escaped.replace('&lt;br&gt;', '<br>')
+        
+        return escaped
+    
+    def generate_drawio_xml(self, topology: TopologyBuilder) -> str:
+        """Generate complete DrawIO XML with simplified label positioning"""
+        # Calculate layout
+        topology.calculate_layout()
+        
+        # Reset ID counter to ensure clean start
+        self.next_id = 2
+        self.device_id_map.clear()
+        
+        # Store topology reference for accessing device information
+        self.topology = topology
+        
+        # Get sorted list of devices
+        sorted_devices = sorted(topology.devices.items(), key=lambda x: x[0])
+        
+        # Create spatial index for collision detection
+        spatial_index = rtree.index.Index()
+        
+        # Process IP information for IP option
+        ip_elements = []
+        diagram_bottom_y = 0
+        
+        if self.args.ip:
+            # Collect IP information for all devices
+            for device_name, device in sorted_devices:
+                device_lines = [f"{device_name}:"]
+                
+                # Add IP information for each interface
+                for interface_name, ip_info in device.interfaces.items():
+                    # Skip loopback and IRB interfaces
+                    if interface_name in ["lo0"] or interface_name.startswith("irb"):
+                        continue
+                    
+                    # Add IP information with correct format
+                    if ip_info:
+                        device_lines.append(f"  {interface_name}: {ip_info}")
+                
+                if len(device_lines) > 1:  # Only add device if it has IP info
+                    ip_lines.extend(device_lines)
+                    ip_lines.append("")  # Empty line between devices
+            
+            # Remove trailing empty line if exists
+            if ip_lines and ip_lines[-1] == "":
+                ip_lines.pop()
+            
+            # Create single text box for all IP information
+            if len(ip_lines) > 2:  # Only create if there's actual IP info (title + empty line + content)
+                # Calculate text box size based on content with precise auto-scaling
+                max_line_length = max(len(line) for line in ip_lines)
+                # More precise width calculation: 5.5 pixels per character + 15px padding
+                text_width = max(180, int(max_line_length * 5.5 + 15))
+                # More precise height calculation: 14px per line + 25px padding
+                text_height = max(70, len(ip_lines) * 14 + 25)
+                
+                element_id = str(self.next_id)
+                self.next_id += 1
+                
+                # Create content with HTML line breaks for DrawIO
+                ip_text = "<br>".join(ip_lines)
+                escaped_ip_text = self._escape_xml(ip_text)
+                
+                # Create element with light blue background for IP info
+                element = f'''<mxCell id="{element_id}" value="{escaped_ip_text}" style="text;html=1;align=left;verticalAlign=top;whiteSpace=wrap;rounded=0;fontSize=10;fontColor=#000000;fillColor=#e3f2fd;strokeColor=#000000;" vertex="1" parent="1">
+                    <mxGeometry x="50" y="0" width="{text_width}" height="{text_height}" as="geometry"/>
+                  </mxCell>'''
+                
+                # Check for collisions before adding
+                bbox = {'x': 50, 'y': 0, 'w': text_width, 'h': text_height}
+                if not spatial_index.overlaps(bbox):
+                    ip_elements.append(element)
+                    spatial_index.insert(bbox, element_id)
+                
+                diagram_bottom_y += text_height + 15  # Move down for next element
+        
+        return ip_elements
+    
+    def _escape_xml_for_html(self, text: str) -> str:
+        """Escape special characters for XML attributes while preserving HTML tags"""
+        # First escape XML special characters
+        escaped = text.replace('&', '&amp;') \
+                     .replace('<', '&lt;') \
+                     .replace('>', '&gt;') \
+                     .replace('"', '&quot;') \
+                     .replace("'", '&apos;')
+        
+        # Then unescape HTML line breaks so they work in DrawIO
+        escaped = escaped.replace('&lt;br&gt;', '<br>')
+        
+        return escaped
+    
+    def generate_drawio_xml(self, topology: TopologyBuilder) -> str:
+        """Generate complete DrawIO XML with simplified label positioning"""
+        # Calculate layout
+        topology.calculate_layout()
+        
+        # Reset ID counter to ensure clean start
+        self.next_id = 2
+        self.device_id_map.clear()
+        
+        # Store topology reference for accessing device information
+        self.topology = topology
+        
+        # Get sorted list of devices
+        sorted_devices = sorted(topology.devices.items(), key=lambda x: x[0])
+        
+        # Create spatial index for collision detection
+        spatial_index = rtree.index.Index()
+        
+        # Process IP information for IP option
+        ip_elements = []
+        diagram_bottom_y = 0
+        
+        if self.args.ip:
+            # Collect IP information for all devices
+            for device_name, device in sorted_devices:
+                device_lines = [f"{device_name}:"]
+                
+                # Add IP information for each interface
+                for interface_name, ip_info in device.interfaces.items():
+                    # Skip loopback and IRB interfaces
+                    if interface_name in ["lo0"] or interface_name.startswith("irb"):
+                        continue
+                    
+                    # Add IP information with correct format
+                    if ip_info:
+                        device_lines.append(f"  {interface_name}: {ip_info}")
+                
+                if len(device_lines) > 1:  # Only add device if it has IP info
+                    ip_lines.extend(device_lines)
+                    ip_lines.append("")  # Empty line between devices
+            
+            # Remove trailing empty line if exists
+            if ip_lines and ip_lines[-1] == "":
+                ip_lines.pop()
+            
+            # Create single text box for all IP information
+            if len(ip_lines) > 2:  # Only create if there's actual IP info (title + empty line + content)
+                # Calculate text box size based on content with precise auto-scaling
+                max_line_length = max(len(line) for line in ip_lines)
+                # More precise width calculation: 5.5 pixels per character + 15px padding
+                text_width = max(180, int(max_line_length * 5.5 + 15))
+                # More precise height calculation: 14px per line + 25px padding
+                text_height = max(70, len(ip_lines) * 14 + 25)
+                
+                element_id = str(self.next_id)
+                self.next_id += 1
+                
+                # Create content with HTML line breaks for DrawIO
+                ip_text = "<br>".join(ip_lines)
+                escaped_ip_text = self._escape_xml(ip_text)
+                
+                # Create element with light blue background for IP info
+                element = f'''<mxCell id="{element_id}" value="{escaped_ip_text}" style="text;html=1;align=left;verticalAlign=top;whiteSpace=wrap;rounded=0;fontSize=10;fontColor=#000000;fillColor=#e3f2fd;strokeColor=#000000;" vertex="1" parent="1">
+                    <mxGeometry x="50" y="0" width="{text_width}" height="{text_height}" as="geometry"/>
+                  </mxCell>'''
+                
+                # Check for collisions before adding
+                bbox = {'x': 50, 'y': 0, 'w': text_width, 'h': text_height}
+                if not spatial_index.overlaps(bbox):
+                    ip_elements.append(element)
+                    spatial_index.insert(bbox, element_id)
+                
+                diagram_bottom_y += text_height + 15  # Move down for next element
+        
+        return ip_elements
+    
+    def _escape_xml_for_html(self, text: str) -> str:
+        """Escape special characters for XML attributes while preserving HTML tags"""
+        # First escape XML special characters
+        escaped = text.replace('&', '&amp;') \
+                     .replace('<', '&lt;') \
+                     .replace('>', '&gt;') \
+                     .replace('"', '&quot;') \
+                     .replace("'", '&apos;')
+        
+        # Then unescape HTML line breaks so they work in DrawIO
+        escaped = escaped.replace('&lt;br&gt;', '<br>')
+        
+        return escaped
+    
+    def generate_drawio_xml(self, topology: TopologyBuilder) -> str:
+        """Generate complete DrawIO XML with simplified label positioning"""
+        # Calculate layout
+        topology.calculate_layout()
+        
+        # Reset ID counter to ensure clean start
+        self.next_id = 2
+        self.device_id_map.clear()
+        
+        # Store topology reference for accessing device information
+        self.topology = topology
+        
+        # Get sorted list of devices
+        sorted_devices = sorted(topology.devices.items(), key=lambda x: x[0])
+        
+        # Create spatial index for collision detection
+        spatial_index = rtree.index.Index()
+        
+        # Process IP information for IP option
+        ip_elements = []
+        diagram_bottom_y = 0
+        
+        if self.args.ip:
+            # Collect IP information for all devices
+            for device_name, device in sorted_devices:
+                device_lines = [f"{device_name}:"]
+                
+                # Add IP information for each interface
+                for interface_name, ip_info in device.interfaces.items():
+                    # Skip loopback and IRB interfaces
+                    if interface_name in ["lo0"] or interface_name.startswith("irb"):
+                        continue
+                    
+                    # Add IP information with correct format
+                    if ip_info:
+                        device_lines.append(f"  {interface_name}: {ip_info}")
+                
+                if len(device_lines) > 1:  # Only add device if it has IP info
+                    ip_lines.extend(device_lines)
+                    ip_lines.append("")  # Empty line between devices
+            
+            # Remove trailing empty line if exists
+            if ip_lines and ip_lines[-1] == "":
+                ip_lines.pop()
+            
+            # Create single text box for all IP information
+            if len(ip_lines) > 2:  # Only create if there's actual IP info (title + empty line + content)
+                # Calculate text box size based on content with precise auto-scaling
+                max_line_length = max(len(line) for line in ip_lines)
+                # More precise width calculation: 5.5 pixels per character + 15px padding
+                text_width = max(180, int(max_line_length * 5.5 + 15))
+                # More precise height calculation: 14px per line + 25px padding
+                text_height = max(70, len(ip_lines) * 14 + 25)
+                
+                element_id = str(self.next_id)
+                self.next_id += 1
+                
+                # Create content with HTML line breaks for DrawIO
+                ip_text = "<br>".join(ip_lines)
+                escaped_ip_text = self._escape_xml(ip_text)
+                
+                # Create element with light blue background for IP info
+                element = f'''<mxCell id="{element_id}" value="{escaped_ip_text}" style="text;html=1;align=left;verticalAlign=top;whiteSpace=wrap;rounded=0;fontSize=10;fontColor=#000000;fillColor=#e3f2fd;strokeColor=#000000;" vertex="1" parent="1">
+                    <mxGeometry x="50" y="0" width="{text_width}" height="{text_height}" as="geometry"/>
+                  </mxCell>'''
+                
+                # Check for collisions before adding
+                bbox = {'x': 50, 'y': 0, 'w': text_width, 'h': text_height}
+                if not spatial_index.overlaps(bbox):
+                    ip_elements.append(element)
+                    spatial_index.insert(bbox, element_id)
+                
+                diagram_bottom_y += text_height + 15  # Move down for next element
+        
+        return ip_elements
+    
+    def _escape_xml_for_html(self, text: str) -> str:
+        """Escape special characters for XML attributes while preserving HTML tags"""
+        # First escape XML special characters
+        escaped = text.replace('&', '&amp;') \
+                     .replace('<', '&lt;') \
+                     .replace('>', '&gt;') \
+                     .replace('"', '&quot;') \
+                     .replace("'", '&apos;')
+        
+        # Then unescape HTML line breaks so they work in DrawIO
+        escaped = escaped.replace('&lt;br&gt;', '<br>')
+        
+        return escaped
+    
+    def generate_drawio_xml(self, topology: TopologyBuilder) -> str:
+        """Generate complete DrawIO XML with simplified label positioning"""
+        # Calculate layout
+        topology.calculate_layout()
+        
+        # Reset ID counter to ensure clean start
+        self.next_id = 2
+        self.device_id_map.clear()
+        
+        # Store topology reference for accessing device information
+        self.topology = topology
+        
+        # Get sorted list of devices
+        sorted_devices = sorted(topology.devices.items(), key=lambda x: x[0])
+        
+        # Create spatial index for collision detection
+        spatial_index = rtree.index.Index()
+        
+        # Process IP information for IP option
+        ip_elements = []
+        diagram_bottom_y = 0
+        
+        if self.args.ip:
+            # Collect IP information for all devices
+            for device_name, device in sorted_devices:
+                device_lines = [f"{device_name}:"]
+                
+                # Add IP information for each interface
+                for interface_name, ip_info in device.interfaces.items():
+                    # Skip loopback and IRB interfaces
+                    if interface_name in ["lo0"] or interface_name.startswith("irb"):
+                        continue
+                    
+                    # Add IP information with correct format
+                    if ip_info:
+                        device_lines.append(f"  {interface_name}: {ip_info}")
+                
+                if len(device_lines) > 1:  # Only add device if it has IP info
+                    ip_lines.extend(device_lines)
+                    ip_lines.append("")  # Empty line between devices
+            
+            # Remove trailing empty line if exists
+            if ip_lines and ip_lines[-1] == "":
+                ip_lines.pop()
+            
+            # Create single text box for all IP information
+            if len(ip_lines) > 2:  # Only create if there's actual IP info (title + empty line + content)
+                # Calculate text box size based on content with precise auto-scaling
+                max_line_length = max(len(line) for line in ip_lines)
+                # More precise width calculation: 5.5 pixels per character + 15px padding
+                text_width = max(180, int(max_line_length * 5.5 + 15))
+                # More precise height calculation: 14px per line + 25px padding
+                text_height = max(70, len(ip_lines) * 14 + 25)
+                
+                element_id = str(self.next_id)
+                self.next_id += 1
+                
+                # Create content with HTML line breaks for DrawIO
+                ip_text = "<br>".join(ip_lines)
+                escaped_ip_text = self._escape_xml(ip_text)
+                
+                # Create element with light blue background for IP info
+                element = f'''<mxCell id="{element_id}" value="{escaped_ip_text}" style="text;html=1;align=left;verticalAlign=top;whiteSpace=wrap;rounded=0;fontSize=10;fontColor=#000000;fillColor=#e3f2fd;strokeColor=#000000;" vertex="1" parent="1">
+                    <mxGeometry x="50" y="0" width="{text_width}" height="{text_height}" as="geometry"/>
+                  </mxCell>'''
+                
+                # Check for collisions before adding
+                bbox = {'x': 50, 'y': 0, 'w': text_width, 'h': text_height}
+                if not spatial_index.overlaps(bbox):
+                    ip_elements.append(element)
+                    spatial_index.insert(bbox, element_id)
+                
+                diagram_bottom_y += text_height + 15  # Move down for next element
+        
+        return ip_elements
+    
+    def _escape_xml_for_html(self, text: str) -> str:
+        """Escape special characters for XML attributes while preserving HTML tags"""
+        # First escape XML special characters
+        escaped = text.replace('&', '&amp;') \
+                     .replace('<', '&lt;') \
+                     .replace('>', '&gt;') \
+                     .replace('"', '&quot;') \
+                     .replace("'", '&apos;')
+        
+        # Then unescape HTML line breaks so they work in DrawIO
+        escaped = escaped.replace('&lt;br&gt;', '<br>')
+        
+        return escaped
+    
+    def generate_drawio_xml(self, topology: TopologyBuilder) -> str:
+        """Generate complete DrawIO XML with simplified label positioning"""
+        # Calculate layout
+        topology.calculate_layout()
+        
+        # Reset ID counter to ensure clean start
+        self.next_id = 2
+        self.device_id_map.clear()
+        
+        # Store topology reference for accessing device information
+        self.topology = topology
+        
+        # Get sorted list of devices
+        sorted_devices = sorted(topology.devices.items(), key=lambda x: x[0])
+        
+        # Create spatial index for collision detection
+        spatial_index = rtree.index.Index()
+        
+        # Process IP information for IP option
+        ip_elements = []
+        diagram_bottom_y = 0
+        
+        if self.args.ip:
+            # Collect IP information for all devices
+            for device_name, device in sorted_devices:
+                device_lines = [f"{device_name}:"]
+                
+                # Add IP information for each interface
+                for interface_name, ip_info in device.interfaces.items():
+                    # Skip loopback and IRB interfaces
+                    if interface_name in ["lo0"] or interface_name.startswith("irb"):
+                        continue
+                    
+                    # Add IP information with correct format
+                    if ip_info:
+                        device_lines.append(f"  {interface_name}: {ip_info}")
+                
+                if len(device_lines) > 1:  # Only add device if it has IP info
+                    ip_lines.extend(device_lines)
+                    ip_lines.append("")  # Empty line between devices
+            
+            # Remove trailing empty line if exists
+            if ip_lines and ip_lines[-1] == "":
+                ip_lines.pop()
+            
+            # Create single text box for all IP information
+            if len(ip_lines) > 2:  # Only create if there's actual IP info (title + empty line + content)
+                # Calculate text box size based on content with precise auto-scaling
+                max_line_length = max(len(line) for line in ip_lines)
+                # More precise width calculation: 5.5 pixels per character + 15px padding
+                text_width = max(180, int(max_line_length * 5.5 + 15))
+                # More precise height calculation: 14px per line + 25px padding
+                text_height = max(70, len(ip_lines) * 14 + 25)
+                
+                element_id = str(self.next_id)
+                self.next_id += 1
+                
+                # Create content with HTML line breaks for DrawIO
+                ip_text = "<br>".join(ip_lines)
+                escaped_ip_text = self._escape_xml(ip_text)
+                
+                # Create element with light blue background for IP info
+                element = f'''<mxCell id="{element_id}" value="{escaped_ip_text}" style="text;html=1;align=left;verticalAlign=top;whiteSpace=wrap;rounded=0;fontSize=10;fontColor=#000000;fillColor=#e3f2fd;strokeColor=#000000;" vertex="1" parent="1">
+                    <mxGeometry x="50" y="0" width="{text_width}" height="{text_height}" as="geometry"/>
+                  </mxCell>'''
+                
+                # Check for collisions before adding
+                bbox = {'x': 50, 'y': 0, 'w': text_width, 'h': text_height}
+                if not spatial_index.overlaps(bbox):
+                    ip_elements.append(element)
+                    spatial_index.insert(bbox, element_id)
+                
+                diagram_bottom_y += text_height + 15  # Move down for next element
+        
+        return ip_elements
+    
+    def _escape_xml_for_html(self, text: str) -> str:
+        """Escape special characters for XML attributes while preserving HTML tags"""
+        # First escape XML special characters
+        escaped = text.replace('&', '&amp;') \
+                     .replace('<', '&lt;') \
+                     .replace('>', '&gt;') \
+                     .replace('"', '&quot;') \
+                     .replace("'", '&apos;')
+        
+        # Then unescape HTML line breaks so they work in DrawIO
+        escaped = escaped.replace('&lt;br&gt;', '<br>')
+        
+        return escaped
+    
+    def generate_drawio_xml(self, topology: TopologyBuilder) -> str:
+        """Generate complete DrawIO XML with simplified label positioning"""
+        # Calculate layout
+        topology.calculate_layout()
+        
+        # Reset ID counter to ensure clean start
+        self.next_id = 2
+        self.device_id_map.clear()
+        
+        # Store topology reference for accessing device information
+        self.topology = topology
+        
+        # Get sorted list of devices
+        sorted_devices = sorted(topology.devices.items(), key=lambda x: x[0])
+        
+        # Create spatial index for collision detection
+        spatial_index = rtree.index.Index()
+        
+        # Process IP information for IP option
+        ip_elements = []
+        diagram_bottom_y = 0
+        
+        if self.args.ip:
+            # Collect IP information for all devices
+            for device_name, device in sorted_devices:
+                device_lines = [f"{device_name}:"]
+                
+                # Add IP information for each interface
+                for interface_name, ip_info in device.interfaces.items():
+                    # Skip loopback and IRB interfaces
+                    if interface_name in ["lo0"] or interface_name.startswith("irb"):
+                        continue
+                    
+                    # Add IP information with correct format
+                    if ip_info:
+                        device_lines.append(f"  {interface_name}: {ip_info}")
+                
+                if len(device_lines) > 1:  # Only add device if it has IP info
+                    ip_lines.extend(device_lines)
+                    ip_lines.append("")  # Empty line between devices
+            
+            # Remove trailing empty line if exists
+            if ip_lines and ip_lines[-1] == "":
+                ip_lines.pop()
+            
+            # Create single text box for all IP information
+            if len(ip_lines) > 2:  # Only create if there's actual IP info (title + empty line + content)
+                # Calculate text box size based on content with precise auto-scaling
+                max_line_length = max(len(line) for line in ip_lines)
+                # More precise width calculation: 5.5 pixels per character + 15px padding
+                text_width = max(180, int(max_line_length * 5.5 + 15))
+                # More precise height calculation: 14px per line + 25px padding
+                text_height = max(70, len(ip_lines) * 14 + 25)
+                
+                element_id = str(self.next_id)
+                self.next_id += 1
+                
+                # Create content with HTML line breaks for DrawIO
+                ip_text = "<br>".join(ip_lines)
+                escaped_ip_text = self._escape_xml(ip_text)
+                
+                # Create element with light blue background for IP info
+                element = f'''<mxCell id="{element_id}" value="{escaped_ip_text}" style="text;html=1;align=left;verticalAlign=top;whiteSpace=wrap;rounded=0;fontSize=10;fontColor=#000000;fillColor=#e3f2fd;strokeColor=#000000;" vertex="1" parent="1">
+                    <mxGeometry x="50" y="0" width="{text_width}" height="{text_height}" as="geometry"/>
+                  </mxCell>'''
+                
+                # Check for collisions before adding
+                bbox = {'x': 50, 'y': 0, 'w': text_width, 'h': text_height}
+                if not spatial_index.overlaps(bbox):
+                    ip_elements.append(element)
+                    spatial_index.insert(bbox, element_id)
+                
+                diagram_bottom_y += text_height + 15  # Move down for next element
+        
+        return ip_elements
+    
+    def _escape_xml_for_html(self, text: str) -> str:
+        """Escape special characters for XML attributes while preserving HTML tags"""
+        # First escape XML special characters
+        escaped = text.replace('&', '&amp;') \
+                     .replace('<', '&lt;') \
+                     .replace('>', '&gt;') \
+                     .replace('"', '&quot;') \
+                     .replace("'", '&apos;')
+        
+        # Then unescape HTML line breaks so they work in DrawIO
+        escaped = escaped.replace('&lt;br&gt;', '<br>')
+        
+        return escaped
+    
+    def generate_drawio_xml(self, topology: TopologyBuilder) -> str:
+        """Generate complete DrawIO XML with simplified label positioning"""
+        # Calculate layout
+        topology.calculate_layout()
+        
+        # Reset ID counter to ensure clean start
+        self.next_id = 2
+        self.device_id_map.clear()
+        
+        # Store topology reference for accessing device information
+        self.topology = topology
+        
+        # Get sorted list of devices
+        sorted_devices = sorted(topology.devices.items(), key=lambda x: x[0])
+        
+        # Create spatial index for collision detection
+        spatial_index = rtree.index.Index()
+        
+        # Process IP information for IP option
+        ip_elements = []
+        diagram_bottom_y = 0
+        
+        if self.args.ip:
+            # Collect IP information for all devices
+            for device_name, device in sorted_devices:
+                device_lines = [f"{device_name}:"]
+                
+                # Add IP information for each interface
+                for interface_name, ip_info in device.interfaces.items():
+                    # Skip loopback and IRB interfaces
+                    if interface_name in ["lo0"] or interface_name.startswith("irb"):
+                        continue
+                    
+                    # Add IP information with correct format
+                    if ip_info:
+                        device_lines.append(f"  {interface_name}: {ip_info}")
+                
+                if len(device_lines) > 1:  # Only add device if it has IP info
+                    ip_lines.extend(device_lines)
+                    ip_lines.append("")  # Empty line between devices
+            
+            # Remove trailing empty line if exists
+            if ip_lines and ip_lines[-1] == "":
+                ip_lines.pop()
+            
+            # Create single text box for all IP information
+            if len(ip_lines) > 2:  # Only create if there's actual IP info (title + empty line + content)
+                # Calculate text box size based on content with precise auto-scaling
+                max_line_length = max(len(line) for line in ip_lines)
+                # More precise width calculation: 5.5 pixels per character + 15px padding
+                text_width = max(180, int(max_line_length * 5.5 + 15))
+                # More precise height calculation: 14px per line + 25px padding
+                text_height = max(70, len(ip_lines) * 14 + 25)
+                
+                element_id = str(self.next_id)
+                self.next_id += 1
+                
+                # Create content with HTML line breaks for DrawIO
+                ip_text = "<br>".join(ip_lines)
+                escaped_ip_text = self._escape_xml(ip_text)
+                
+                # Create element with light blue background for IP info
+                element = f'''<mxCell id="{element_id}" value="{escaped_ip_text}" style="text;html=1;align=left;verticalAlign=top;whiteSpace=wrap;rounded=0;fontSize=10;fontColor=#000000;fillColor=#e3f2fd;strokeColor=#000000;" vertex="1" parent="1">
+                    <mxGeometry x="50" y="0" width="{text_width}" height="{text_height}" as="geometry"/>
+                  </mxCell>'''
+                
+                # Check for collisions before adding
+                bbox = {'x': 50, 'y': 0, 'w': text_width, 'h': text_height}
+                if not spatial_index.overlaps(bbox):
+                    ip_elements.append(element)
+                    spatial_index.insert(bbox, element_id)
+                
+                diagram_bottom_y += text_height + 15  # Move down for next element
+        
+        return ip_elements
+    
+    def _escape_xml_for_html(self, text: str) -> str:
+        """Escape special characters for XML attributes while preserving HTML tags"""
+        # First escape XML special characters
+        escaped = text.replace('&', '&amp;') \
+                     .replace('<', '&lt;') \
+                     .replace('>', '&gt;') \
+                     .replace('"', '&quot;') \
+                     .replace("'", '&apos;')
+        
+        # Then unescape HTML line breaks so they work in DrawIO
+        escaped = escaped.replace('&lt;br&gt;', '<br>')
+        
+        return escaped
+    
+    def generate_drawio_xml(self, topology: TopologyBuilder) -> str:
+        """Generate complete DrawIO XML with simplified label positioning"""
+        # Calculate layout
+        topology.calculate_layout()
+        
+        # Reset ID counter to ensure clean start
+        self.next_id = 2
+        self.device_id_map.clear()
+        
+        # Store topology reference for accessing device information
+        self.topology = topology
+        
+        # Get sorted list of devices
+        sorted_devices = sorted(topology.devices.items(), key=lambda x: x[0])
+        
+        # Create spatial index for collision detection
+        spatial_index = rtree.index.Index()
+        
+        # Process IP information for IP option
+        ip_elements = []
+        diagram_bottom_y = 0
+        
+        if self.args.ip:
+            # Collect IP information for all devices
+            for device_name, device in sorted_devices:
+                device_lines = [f"{device_name}:"]
+                
+                # Add IP information for each interface
+                for interface_name, ip_info in device.interfaces.items():
+                    # Skip loopback and IRB interfaces
+                    if interface_name in ["lo0"] or interface_name.startswith("irb"):
+                        continue
+                    
+                    # Add IP information with correct format
+                    if ip_info:
+                        device_lines.append(f"  {interface_name}: {ip_info}")
+                
+                if len(device_lines) > 1:  # Only add device if it has IP info
+                    ip_lines.extend(device_lines)
+                    ip_lines.append("")  # Empty line between devices
+            
+            # Remove trailing empty line if exists
+            if ip_lines and ip_lines[-1] == "":
+                ip_lines.pop()
+            
+            # Create single text box for all IP information
+            if len(ip_lines) > 2:  # Only create if there's actual IP info (title + empty line + content)
+                # Calculate text box size based on content with precise auto-scaling
+                max_line_length = max(len(line) for line in ip_lines)
+                # More precise width calculation: 5.5 pixels per character + 15px padding
+                text_width = max(180, int(max_line_length * 5.5 + 15))
+                # More precise height calculation: 14px per line + 25px padding
+                text_height = max(70, len(ip_lines) * 14 + 25)
+                
+                element_id = str(self.next_id)
+                self.next_id += 1
+                
+                # Create content with HTML line breaks for DrawIO
+                ip_text = "<br>".join(ip_lines)
+                escaped_ip_text = self._escape_xml(ip_text)
+                
+                # Create element with light blue background for IP info
+                element = f'''<mxCell id="{element_id}" value="{escaped_ip_text}" style="text;html=1;align=left;verticalAlign=top;whiteSpace=wrap;rounded=0;fontSize=10;fontColor=#000000;fillColor=#e3f2fd;strokeColor=#000000;" vertex="1" parent="1">
+                    <mxGeometry x="50" y="0" width="{text_width}" height="{text_height}" as="geometry"/>
+                  </mxCell>'''
+                
+                # Check for collisions before adding
+                bbox = {'x': 50, 'y': 0, 'w': text_width, 'h': text_height}
+                if not spatial_index.overlaps(bbox):
+                    ip_elements.append(element)
+                    spatial_index.insert(bbox, element_id)
+                
+                diagram_bottom_y += text_height + 15  # Move down for next element
+        
+        return ip_elements
+    
+    def _escape_xml_for_html(self, text: str) -> str:
+        """Escape special characters for XML attributes while preserving HTML tags"""
+        # First escape XML special characters
+        escaped = text.replace('&', '&amp;') \
+                     .replace('<', '&lt;') \
+                     .replace('>', '&gt;') \
+                     .replace('"', '&quot;') \
+                     .replace("'", '&apos;')
+        
+        # Then unescape HTML line breaks so they work in DrawIO
+        escaped = escaped.replace('&lt;br&gt;', '<br>')
+        
+        return escaped
+    
+    def generate_drawio_xml(self, topology: TopologyBuilder) -> str:
+        """Generate complete DrawIO XML with simplified label positioning"""
+        # Calculate layout
+        topology.calculate_layout()
+        
+        # Reset ID counter to ensure clean start
+        self.next_id = 2
+        self.device_id_map.clear()
+        
+        # Store topology reference for accessing device information
+        self.topology = topology
+        
+        # Get sorted list of devices
+        sorted_devices = sorted(topology.devices.items(), key=lambda x: x[0])
+        
+        # Create spatial index for collision detection
+        spatial_index = rtree.index.Index()
+        
+        # Process IP information for IP option
+        ip_elements = []
+        diagram_bottom_y = 0
+        
+        if self.args.ip:
+            # Collect IP information for all devices
+            for device_name, device in sorted_devices:
+                device_lines = [f"{device_name}:"]
+                
+                # Add IP information for each interface
+                for interface_name, ip_info in device.interfaces.items():
+                    # Skip loopback and IRB interfaces
+                    if interface_name in ["lo0"] or interface_name.startswith("irb"):
+                        continue
+                    
+                    # Add IP information with correct format
+                    if ip_info:
+                        device_lines.append(f"  {interface_name}: {ip_info}")
+                
+                if len(device_lines) > 1:  # Only add device if it has IP info
+                    ip_lines.extend(device_lines)
+                    ip_lines.append("")  # Empty line between devices
+            
+            # Remove trailing empty line if exists
+            if ip_lines and ip_lines[-1] == "":
+                ip_lines.pop()
+            
+            # Create single text box for all IP information
+            if len(ip_lines) > 2:  # Only create if there's actual IP info (title + empty line + content)
+                # Calculate text box size based on content with precise auto-scaling
+                max_line_length = max(len(line) for line in ip_lines)
+                # More precise width calculation: 5.5 pixels per character + 15px padding
+                text_width = max(180, int(max_line_length * 5.5 + 15))
+                # More precise height calculation: 14px per line + 25px padding
+                text_height = max(70, len(ip_lines) * 14 + 25)
+                
+                element_id = str(self.next_id)
+                self.next_id += 1
+                
+                # Create content with HTML line breaks for DrawIO
+                ip_text = "<br>".join(ip_lines)
+                escaped_ip_text = self._escape_xml(ip_text)
+                
+                # Create element with light blue background for IP info
+                element = f'''<mxCell id="{element_id}" value="{escaped_ip_text}" style="text;html=1;align=left;verticalAlign=top;whiteSpace=wrap;rounded=0;fontSize=10;fontColor=#000000;fillColor=#e3f2fd;strokeColor=#000000;" vertex="1" parent="1">
+                    <mxGeometry x="50" y="0" width="{text_width}" height="{text_height}" as="geometry"/>
+                  </mxCell>'''
+                
+                # Check for collisions before adding
+                bbox = {'x': 50, 'y': 0, 'w': text_width, 'h': text_height}
+                if not spatial_index.overlaps(bbox):
+                    ip_elements.append(element)
+                    spatial_index.insert(bbox, element_id)
+                
+                diagram_bottom_y += text_height + 15  # Move down for next element
+        
+        return ip_elements
+    
+    def _escape_xml_for_html(self, text: str) -> str:
+        """Escape special characters for XML attributes while preserving HTML tags"""
+        # First escape XML special characters
+        escaped = text.replace('&', '&amp;') \
+                     .replace('<', '&lt;') \
+                     .replace('>', '&gt;') \
+                     .replace('"', '&quot;') \
+                     .replace("'", '&apos;')
+        
+        # Then unescape HTML line breaks so they work in DrawIO
+        escaped = escaped.replace('&lt;br&gt;', '<br>')
+        
+        return escaped
+    
+    def generate_drawio_xml(self, topology: TopologyBuilder) -> str:
+        """Generate complete DrawIO XML with simplified label positioning"""
+        # Calculate layout
+        topology.calculate_layout()
+        
+        # Reset ID counter to ensure clean start
+        self.next_id = 2
+        self.device_id_map.clear()
+        
+        # Store topology reference for accessing device information
+        self.topology = topology
+        
+        # Get sorted list of devices
+        sorted_devices = sorted(topology.devices.items(), key=lambda x: x[0])
+        
+        # Create spatial index for collision detection
+        spatial_index = rtree.index.Index()
+        
+        # Process IP information for IP option
+        ip_elements = []
+        diagram_bottom_y = 0
+        
+        if self.args.ip:
+            # Collect IP information for all devices
+            for device_name, device in sorted_devices:
+                device_lines = [f"{device_name}:"]
+                
+                # Add IP information for each interface
+                for interface_name, ip_info in device.interfaces.items():
+                    # Skip loopback and IRB interfaces
+                    if interface_name in ["lo0"] or interface_name.startswith("irb"):
+                        continue
+                    
+                    # Add IP information with correct format
+                    if ip_info:
+                        device_lines.append(f"  {interface_name}: {ip_info}")
+                
+                if len(device_lines) > 1:  # Only add device if it has IP info
+                    ip_lines.extend(device_lines)
+                    ip_lines.append("")  # Empty line between devices
+            
+            # Remove trailing empty line if exists
+            if ip_lines and ip_lines[-1] == "":
+                ip_lines.pop()
+            
+            # Create single text box for all IP information
+            if len(ip_lines) > 2:  # Only create if there's actual IP info (title + empty line + content)
+                # Calculate text box size based on content with precise auto-scaling
+                max_line_length = max(len(line) for line in ip_lines)
+                # More precise width calculation: 5.5 pixels per character + 15px padding
+                text_width = max(180, int(max_line_length * 5.5 + 15))
+                # More precise height calculation: 14px per line + 25px padding
+                text_height = max(70, len(ip_lines) * 14 + 25)
+                
+                element_id = str(self.next_id)
+                self.next_id += 1
+                
+                # Create content with HTML line breaks for DrawIO
+                ip_text = "<br>".join(ip_lines)
+                escaped_ip_text = self._escape_xml(ip_text)
+                
+                # Create element with light blue background for IP info
+                element = f'''<mxCell id="{element_id}" value="{escaped_ip_text}" style="text;html=1;align=left;verticalAlign=top;whiteSpace=wrap;rounded=0;fontSize=10;fontColor=#000000;fillColor=#e3f2fd;strokeColor=#000000;" vertex="1" parent="1">
+                    <mxGeometry x="50" y="0" width="{text_width}" height="{text_height}" as="geometry"/>
+                  </mxCell>'''
+                
+                # Check for collisions before adding
+                bbox = {'x': 50, 'y': 0, 'w': text_width, 'h': text_height}
+                if not spatial_index.overlaps(bbox):
+                    ip_elements.append(element)
+                    spatial_index.insert(bbox, element_id)
+                
+                diagram_bottom_y += text_height + 15  # Move down for next element
+        
+        return ip_elements
+    
+    def _escape_xml_for_html(self, text: str) -> str:
+        """Escape special characters for XML attributes while preserving HTML tags"""
+        # First escape XML special characters
+        escaped = text.replace('&', '&amp;') \
+                     .replace('<', '&lt;') \
+                     .replace('>', '&gt;') \
+                     .replace('"', '&quot;') \
+                     .replace("'", '&apos;')
+        
+        # Then unescape HTML line breaks so they work in DrawIO
+        escaped = escaped.replace('&lt;br&gt;', '<br>')
+        
+        return escaped
+    
+    def generate_drawio_xml(self, topology: TopologyBuilder) -> str:
+        """Generate complete DrawIO XML with simplified label positioning"""
+        # Calculate layout
+        topology.calculate_layout()
+        
+        # Reset ID counter to ensure clean start
+        self.next_id = 2
+        self.device_id_map.clear()
+        
+        # Store topology reference for accessing device information
+        self.topology = topology
+        
+        # Get sorted list of devices
+        sorted_devices = sorted(topology.devices.items(), key=lambda x: x[0])
+        
+        # Create spatial index for collision detection
+        spatial_index = rtree.index.Index()
+        
+        # Process IP information for IP option
+        ip_elements = []
+        diagram_bottom_y = 0
+        
+        if self.args.ip:
+            # Collect IP information for all devices
+            for device_name, device in sorted_devices:
+                device_lines = [f"{device_name}:"]
+                
+                # Add IP information for each interface
+                for interface_name, ip_info in device.interfaces.items():
+                    # Skip loopback and IRB interfaces
+                    if interface_name in ["lo0"] or interface_name.startswith("irb"):
+                        continue
+                    
+                    # Add IP information with correct format
+                    if ip_info:
+                        device_lines.append(f"  {interface_name}: {ip_info}")
+                
+                if len(device_lines) > 1:  # Only add device if it has IP info
+                    ip_lines.extend(device_lines)
+                    ip_lines.append("")  # Empty line between devices
+            
+            # Remove trailing empty line if exists
+            if ip_lines and ip_lines[-1] == "":
+                ip_lines.pop()
+            
+            # Create single text box for all IP information
+            if len(ip_lines) > 2:  # Only create if there's actual IP info (title + empty line + content)
+                # Calculate text box size based on content with precise auto-scaling
+                max_line_length = max(len(line) for line in ip_lines)
+                # More precise width calculation: 5.5 pixels per character + 15px padding
+                text_width = max(180, int(max_line_length * 5.5 + 15))
+                # More precise height calculation: 14px per line + 25px padding
+                text_height = max(70, len(ip_lines) * 14 + 25)
+                
+                element_id = str(self.next_id)
+                self.next_id += 1
+                
+                # Create content with HTML line breaks for DrawIO
+                ip_text = "<br>".join(ip_lines)
+                escaped_ip_text = self._escape_xml(ip_text)
+                
+                # Create element with light blue background for IP info
+                element = f'''<mxCell id="{element_id}" value="{escaped_ip_text}" style="text;html=1;align=left;verticalAlign=top;whiteSpace=wrap;rounded=0;fontSize=10;fontColor=#000000;fillColor=#e3f2fd;strokeColor=#000000;" vertex="1" parent="1">
+                    <mxGeometry x="50" y="0" width="{text_width}" height="{text_height}" as="geometry"/>
+                  </mxCell>'''
+                
+                # Check for collisions before adding
+                bbox = {'x': 50, 'y': 0, 'w': text_width, 'h': text_height}
+                if not spatial_index.overlaps(bbox):
+                    ip_elements.append(element)
+                    spatial_index.insert(bbox, element_id)
+                
+                diagram_bottom_y += text_height + 15  # Move down for next element
+        
+        return ip_elements
+    
+    def _escape_xml_for_html(self, text: str) -> str:
+        """Escape special characters for XML attributes while preserving HTML tags"""
+        # First escape XML special characters
+        escaped = text.replace('&', '&amp;') \
+                     .replace('<', '&lt;') \
+                     .replace('>', '&gt;') \
+                     .replace('"', '&quot;') \
+                     .replace("'", '&apos;')
+        
+        # Then unescape HTML line breaks so they work in DrawIO
+        escaped = escaped.replace('&lt;br&gt;', '<br>')
+        
+        return escaped
+    
+    def generate_drawio_xml(self, topology: TopologyBuilder) -> str:
+        """Generate complete DrawIO XML with simplified label positioning"""
+        # Calculate layout
+        topology.calculate_layout()
+        
+        # Reset ID counter to ensure clean start
+        self.next_id = 2
+        self.device_id_map.clear()
+        
+        # Store topology reference for accessing device information
+        self.topology = topology
+        
+        # Get sorted list of devices
+        sorted_devices = sorted(topology.devices.items(), key=lambda x: x[0])
+        
+        # Create spatial index for collision detection
+        spatial_index = rtree.index.Index()
+        
+        # Process IP information for IP option
+        ip_elements = []
+        diagram_bottom_y = 0
+        
+        if self.args.ip:
+            # Collect IP information for all devices
+            for device_name, device in sorted_devices:
+                device_lines = [f"{device_name}:"]
+                
+                # Add IP information for each interface
+                for interface_name, ip_info in device.interfaces.items():
+                    # Skip loopback and IRB interfaces
+                    if interface_name in ["lo0"] or interface_name.startswith("irb"):
+                        continue
+                    
+                    # Add IP information with correct format
+                    if ip_info:
+                        device_lines.append(f"  {interface_name}: {ip_info}")
+                
+                if len(device_lines) > 1:  # Only add device if it has IP info
+                    ip_lines.extend(device_lines)
+                    ip_lines.append("")  # Empty line between devices
+            
+            # Remove trailing empty line if exists
+            if ip_lines and ip_lines[-1] == "":
+                ip_lines.pop()
+            
+            # Create single text box for all IP information
+            if len(ip_lines) > 2:  # Only create if there's actual IP info (title + empty line + content)
+                # Calculate text box size based on content with precise auto-scaling
+                max_line_length = max(len(line) for line in ip_lines)
+                # More precise width calculation: 5.5 pixels per character + 15px padding
+                text_width = max(180, int(max_line_length * 5.5 + 15))
+                # More precise height calculation: 14px per line + 25px padding
+                text_height = max(70, len(ip_lines) * 14 + 25)
+                
+                element_id = str(self.next_id)
+                self.next_id += 1
+                
+                # Create content with HTML line breaks for DrawIO
+                ip_text = "<br>".join(ip_lines)
+                escaped_ip_text = self._escape_xml(ip_text)
+                
+                # Create element with light blue background for IP info
+                element = f'''<mxCell id="{element_id}" value="{escaped_ip_text}" style="text;html=1;align=left;verticalAlign=top;whiteSpace=wrap;rounded=0;fontSize=10;fontColor=#000000;fillColor=#e3f2fd;strokeColor=#000000;" vertex="1" parent="1">
+                    <mxGeometry x="50" y="0" width="{text_width}" height="{text_height}" as="geometry"/>
+                  </mxCell>'''
+                
+                # Check for collisions before adding
+                bbox = {'x': 50, 'y': 0, 'w': text_width, 'h': text_height}
+                if not spatial_index.overlaps(bbox):
+                    ip_elements.append(element)
+                    spatial_index.insert(bbox, element_id)
+                
+                diagram_bottom_y += text_height + 15  # Move down for next element
+        
+        return ip_elements
+    
+    def _escape_xml_for_html(self, text: str) -> str:
+        """Escape special characters for XML attributes while preserving HTML tags"""
+        # First escape XML special characters
+        escaped = text.replace('&', '&amp;') \
+                     .replace('<', '&lt;') \
+                     .replace('>', '&gt;') \
+                     .replace('"', '&quot;') \
+                     .replace("'", '&apos;')
+        
+        # Then unescape HTML line breaks so they work in DrawIO
+        escaped = escaped.replace('&lt;br&gt;', '<br>')
+        
+        return escaped
+    
+    def generate_drawio_xml(self, topology: TopologyBuilder) -> str:
+        """Generate complete DrawIO XML with simplified label positioning"""
+        # Calculate layout
+        topology.calculate_layout()
+        
+        # Reset ID counter to ensure clean start
+        self.next_id = 2
+        self.device_id_map.clear()
+        
+        # Store topology reference for accessing device information
+        self.topology = topology
+        
+        # Get sorted list of devices
+        sorted_devices = sorted(topology.devices.items(), key=lambda x: x[0])
+        
+        # Create spatial index for collision detection
+        spatial_index = rtree.index.Index()
+        
+        # Process IP information for IP option
+        ip_elements = []
+        diagram_bottom_y = 0
+        
+        if self.args.ip:
+            # Collect IP information for all devices
+            for device_name, device in sorted_devices:
+                device_lines = [f"{device_name}:"]
+                
+                # Add IP information for each interface
+                for interface_name, ip_info in device.interfaces.items():
+                    # Skip loopback and IRB interfaces
+                    if interface_name in ["lo0"] or interface_name.startswith("irb"):
+                        continue
+                    
+                    # Add IP information with correct format
+                    if ip_info:
+                        device_lines.append(f"  {interface_name}: {ip_info}")
+                
+                if len(device_lines) > 1:  # Only add device if it has IP info
+                    ip_lines.extend(device_lines)
+                    ip_lines.append("")  # Empty line between devices
+            
+            # Remove trailing empty line if exists
+            if ip_lines and ip_lines[-1] == "":
+                ip_lines.pop()
+            
+            # Create single text box for all IP information
+            if len(ip_lines) > 2:  # Only create if there's actual IP info (title + empty line + content)
+                # Calculate text box size based on content with precise auto-scaling
+                max_line_length = max(len(line) for line in ip_lines)
+                # More precise width calculation: 5.5 pixels per character + 15px padding
+                text_width = max(180, int(max_line_length * 5.5 + 15))
+                # More precise height calculation: 14px per line + 25px padding
+                text_height = max(70, len(ip_lines) * 14 + 25)
+                
+                element_id = str(self.next_id)
+                self.next_id += 1
+                
+                # Create content with HTML line breaks for DrawIO
+                ip_text = "<br>".join(ip_lines)
+                escaped_ip_text = self._escape_xml(ip_text)
+                
+                # Create element with light blue background for IP info
+                element = f'''<mxCell id="{element_id}" value="{escaped_ip_text}" style="text;html=1;align=left;verticalAlign=top;whiteSpace=wrap;rounded=0;fontSize=10;fontColor=#000000;fillColor=#e3f2fd;strokeColor=#000000;" vertex="1" parent="1">
+                    <mxGeometry x="50" y="0" width="{text_width}" height="{text_height}" as="geometry"/>
+                  </mxCell>'''
+                
+                # Check for collisions before adding
+                bbox = {'x': 50, 'y': 0, 'w': text_width, 'h': text_height}
+                if not spatial_index.overlaps(bbox):
+                    ip_elements.append(element)
+                    spatial_index.insert(bbox, element_id)
+                
+                diagram_bottom_y += text_height + 15  # Move down for next element
+        
+        return ip_elements
+    
+    def _escape_xml_for_html(self, text: str) -> str:
+        """Escape special characters for XML attributes while preserving HTML tags"""
+        # First escape XML special characters
+        escaped = text.replace('&', '&amp;') \
+                     .replace('<', '&lt;') \
+                     .replace('>', '&gt;') \
+                     .replace('"', '&quot;') \
+                     .replace("'", '&apos;')
+        
+        # Then unescape HTML line breaks so they work in DrawIO
+        escaped = escaped.replace('&lt;br&gt;', '<br>')
+        
+        return escaped
+    
+    def generate_drawio_xml(self, topology: TopologyBuilder) -> str:
+        """Generate complete DrawIO XML with simplified label positioning"""
+        # Calculate layout
+        topology.calculate_layout()
+        
+        # Reset ID counter to ensure clean start
+        self.next_id = 2
+        self.device_id_map.clear()
+        
+        # Store topology reference for accessing device information
+        self.topology = topology
+        
+        # Get sorted list of devices
+        sorted_devices = sorted(topology.devices.items(), key=lambda x: x[0])
+        
+        # Create spatial index for collision detection
+        spatial_index = rtree.index.Index()
+        
+        # Process IP information for IP option
+        ip_elements = []
+        diagram_bottom_y = 0
+        
+        if self.args.ip:
+            # Collect IP information for all devices
+            for device_name, device in sorted_devices:
+                device_lines = [f"{device_name}:"]
+                
+                # Add IP information for each interface
+                for interface_name, ip_info in device.interfaces.items():
+                    # Skip loopback and IRB interfaces
+                    if interface_name in ["lo0"] or interface_name.startswith("irb"):
+                        continue
+                    
+                    # Add IP information with correct format
+                    if ip_info:
+                        device_lines.append(f"  {interface_name}: {ip_info}")
+                
+                if len(device_lines) > 1:  # Only add device if it has IP info
+                    ip_lines.extend(device_lines)
+                    ip_lines.append("")  # Empty line between devices
+            
+            # Remove trailing empty line if exists
+            if ip_lines and ip_lines[-1] == "":
+                ip_lines.pop()
+            
+            # Create single text box for all IP information
+            if len(ip_lines) > 2:  # Only create if there's actual IP info (title + empty line + content)
+                # Calculate text box size based on content with precise auto-scaling
+                max_line_length = max(len(line) for line in ip_lines)
+                # More precise width calculation: 5.5 pixels per character + 15px padding
+                text_width = max(180, int(max_line_length * 5.5 + 15))
+                # More precise height calculation: 14px per line + 25px padding
+                text_height = max(70, len(ip_lines) * 14 + 25)
+                
+                element_id = str(self.next_id)
+                self.next_id += 1
+                
+                # Create content with HTML line breaks for DrawIO
+                ip_text = "<br>".join(ip_lines)
+                escaped_ip_text = self._escape_xml(ip_text)
+                
+                # Create element with light blue background for IP info
+                element = f'''<mxCell id="{element_id}" value="{escaped_ip_text}" style="text;html=1;align=left;verticalAlign=top;whiteSpace=wrap;rounded=0;fontSize=10;fontColor=#000000;fillColor=#e3f2fd;strokeColor=#000000;" vertex="1" parent="1">
+                    <mxGeometry x="50" y="0" width="{text_width}" height="{text_height}" as="geometry"/>
+                  </mxCell>'''
+                
+                # Check for collisions before adding
+                bbox = {'x': 50, 'y': 0, 'w': text_width, 'h': text_height}
+                if not spatial_index.overlaps(bbox):
+                    ip_elements.append(element)
+                    spatial_index.insert(bbox, element_id)
+                
+                diagram_bottom_y += text_height + 15  # Move down for next element
+        
+        return ip_elements
+    
+    def _escape_xml_for_html(self, text: str) -> str:
+        """Escape special characters for XML attributes while preserving HTML tags"""
+        # First escape XML special characters
+        escaped = text.replace('&', '&amp;') \
+                     .replace('<', '&lt;') \
+                     .replace('>', '&gt;') \
+                     .replace('"', '&quot;') \
+                     .replace("'", '&apos;')
+        
+        # Then unescape HTML line breaks so they work in DrawIO
+        escaped = escaped.replace('&lt;br&gt;', '<br>')
+        
+        return escaped
+    
+    def generate_drawio_xml(self, topology: TopologyBuilder) -> str:
+        """Generate complete DrawIO XML with simplified label positioning"""
+        # Calculate layout
+        topology.calculate_layout()
+        
+        # Reset ID counter to ensure clean start
+        self.next_id = 2
+        self.device_id_map.clear()
+        
+        # Store topology reference for accessing device information
+        self.topology = topology
+        
+        # Get sorted list of devices
+        sorted_devices = sorted(topology.devices.items(), key=lambda x: x[0])
+        
+        # Create spatial index for collision detection
+        spatial_index = rtree.index.Index()
+        
+        # Process IP information for IP option
+        ip_elements = []
+        diagram_bottom_y = 0
+        
+        if self.args.ip:
+            # Collect IP information for all devices
+            for device_name, device in sorted_devices:
+                device_lines = [f"{device_name}:"]
+                
+                # Add IP information for each interface
+                for interface_name, ip_info in device.interfaces.items():
+                    # Skip loopback and IRB interfaces
+                    if interface_name in ["lo0"] or interface_name.startswith("irb"):
+                        continue
+                    
+                    # Add IP information with correct format
+                    if ip_info:
+                        device_lines.append(f"  {interface_name}: {ip_info}")
+                
+                if len(device_lines) > 1:  # Only add device if it has IP info
+                    ip_lines.extend(device_lines)
+                    ip_lines.append("")  # Empty line between devices
+            
+            # Remove trailing empty line if exists
+            if ip_lines and ip_lines[-1] == "":
+                ip_lines.pop()
+            
+            # Create single text box for all IP information
+            if len(ip_lines) > 2:  # Only create if there's actual IP info (title + empty line + content)
+                # Calculate text box size based on content with precise auto-scaling
+                max_line_length = max(len(line) for line in ip_lines)
+                # More precise width calculation: 5.5 pixels per character + 15px padding
+                text_width = max(180, int(max_line_length * 5.5 + 15))
+                # More precise height calculation: 14px per line + 25px padding
+                text_height = max(70, len(ip_lines) * 14 + 25)
+                
+                element_id = str(self.next_id)
+                self.next_id += 1
+                
+                # Create content with HTML line breaks for DrawIO
+                ip_text = "<br>".join(ip_lines)
+                escaped_ip_text = self._escape_xml(ip_text)
+                
+                # Create element with light blue background for IP info
+                element = f'''<mxCell id="{element_id}" value="{escaped_ip_text}" style="text;html=1;align=left;verticalAlign=top;whiteSpace=wrap;rounded=0;fontSize=10;fontColor=#000000;fillColor=#e3f2fd;strokeColor=#000000;" vertex="1" parent="1">
+                    <mxGeometry x="50" y="0" width="{text_width}" height="{text_height}" as="geometry"/>
+                  </mxCell>'''
+                
+                # Check for collisions before adding
+                bbox = {'x': 50, 'y': 0, 'w': text_width, 'h': text_height}
+                if not spatial_index.overlaps(bbox):
+                    ip_elements.append(element)
+                    spatial_index.insert(bbox, element_id)
+                
+                diagram_bottom_y += text_height + 15  # Move down for next element
+        
+        return ip_elements
+    
+    def _escape_xml_for_html(self, text: str) -> str:
+        """Escape special characters for XML attributes while preserving HTML tags"""
+        # First escape XML special characters
+        escaped = text.replace('&', '&amp;') \
+                     .replace('<', '&lt;') \
+                     .replace('>', '&gt;') \
+                     .replace('"', '&quot;') \
+                     .replace("'", '&apos;')
+        
+        # Then unescape HTML line breaks so they work in DrawIO
+        escaped = escaped.replace('&lt;br&gt;', '<br>')
+        
+        return escaped
+    
+    def generate_drawio_xml(self, topology: TopologyBuilder) -> str:
+        """Generate complete DrawIO XML with simplified label positioning"""
+        # Calculate layout
+        topology.calculate_layout()
+        
+        # Reset ID counter to ensure clean start
+        self.next_id = 2
+        self.device_id_map.clear()
+        
+        # Store topology reference for accessing device information
+        self.topology = topology
+        
+        # Get sorted list of devices
+        sorted_devices = sorted(topology.devices.items(), key=lambda x: x[0])
+        
+        # Create spatial index for collision detection
+        spatial_index = rtree.index.Index()
+        
+        # Process IP information for IP option
+        ip_elements = []
+        diagram_bottom_y = 0
+        
+        if self.args.ip:
+            # Collect IP information for all devices
+            for device_name, device in sorted_devices:
+                device_lines = [f"{device_name}:"]
+                
+                # Add IP information for each interface
+                for interface_name, ip_info in device.interfaces.items():
+                    # Skip loopback and IRB interfaces
+                    if interface_name in ["lo0"] or interface_name.startswith("irb"):
+                        continue
+                    
+                    # Add IP information with correct format
+                    if ip_info:
+                        device_lines.append(f"  {interface_name}: {ip_info}")
+                
+                if len(device_lines) > 1:  # Only add device if it has IP info
+                    ip_lines.extend(device_lines)
+                    ip_lines.append("")  # Empty line between devices
+            
+            # Remove trailing empty line if exists
+            if ip_lines and ip_lines[-1] == "":
+                ip_lines.pop()
+            
+            # Create single text box for all IP information
+            if len(ip_lines) > 2:  # Only create if there's actual IP info (title + empty line + content)
+                # Calculate text box size based on content with precise auto-scaling
+                max_line_length = max(len(line) for line in ip_lines)
+                # More precise width calculation: 5.5 pixels per character + 15px padding
+                text_width = max(180, int(max_line_length * 5.5 + 15))
+                # More precise height calculation: 14px per line + 25px padding
+                text_height = max(70, len(ip_lines) * 14 + 25)
+                
+                element_id = str(self.next_id)
+                self.next_id += 1
+                
+                # Create content with HTML line breaks for DrawIO
+                ip_text = "<br>".join(ip_lines)
+                escaped_ip_text = self._escape_xml(ip_text)
+                
+                # Create element with light blue background for IP info
+                element = f'''<mxCell id="{element_id}" value="{escaped_ip_text}" style="text;html=1;align=left;verticalAlign=top;whiteSpace=wrap;rounded=0;fontSize=10;fontColor=#000000;fillColor=#e3f2fd;strokeColor=#000000;" vertex="1" parent="1">
+                    <mxGeometry x="50" y="0" width="{text_width}" height="{text_height}" as="geometry"/>
+                  </mxCell>'''
+                
+                # Check for collisions before adding
+                bbox = {'x': 50, 'y': 0, 'w': text_width, 'h': text_height}
+                if not spatial_index.overlaps(bbox):
+                    ip_elements.append(element)
+                    spatial_index.insert(bbox, element_id)
+                
+                diagram_bottom_y += text_height + 15  # Move down for next element
+        
+        return ip_elements
+    
+    def _escape_xml_for_html(self, text: str) -> str:
+        """Escape special characters for XML attributes while preserving HTML tags"""
+        # First escape XML special characters
+        escaped = text.replace('&', '&amp;') \
+                     .replace('<', '&lt;') \
+                     .replace('>', '&gt;') \
+                     .replace('"', '&quot;') \
+                     .replace("'", '&apos;')
+        
+        # Then unescape HTML line breaks so they work in DrawIO
+        escaped = escaped.replace('&lt;br&gt;', '<br>')
+        
+        return escaped
+    
+    def generate_drawio_xml(self, topology: TopologyBuilder) -> str:
+        """Generate complete DrawIO XML with simplified label positioning"""
+        # Calculate layout
+        topology.calculate_layout()
+        
+        # Reset ID counter to ensure clean start
+        self.next_id = 2
+        self.device_id_map.clear()
+        
+        # Store topology reference for accessing device information
+        self.topology = topology
+        
+        # Get sorted list of devices
+        sorted_devices = sorted(topology.devices.items(), key=lambda x: x[0])
+        
+        # Create spatial index for collision detection
+        spatial_index = rtree.index.Index()
+        
+        # Process IP information for IP option
+        ip_elements = []
+        diagram_bottom_y = 0
+        
+        if self.args.ip:
+            # Collect IP information for all devices
+            for device_name, device in sorted_devices:
+                device_lines = [f"{device_name}:"]
+                
+                # Add IP information for each interface
+                for interface_name, ip_info in device.interfaces.items():
+                    # Skip loopback and IRB interfaces
+                    if interface_name in ["lo0"] or interface_name.startswith("irb"):
+                        continue
+                    
+                    # Add IP information with correct format
+                    if ip_info:
+                        device_lines.append(f"  {interface_name}: {ip_info}")
+                
+                if len(device_lines) > 1:  # Only add device if it has IP info
+                    ip_lines.extend(device_lines)
+                    ip_lines.append("")  # Empty line between devices
+            
+            # Remove trailing empty line if exists
+            if ip_lines and ip_lines[-1] == "":
+                ip_lines.pop()
+            
+            # Create single text box for all IP information
+            if len(ip_lines) > 2:  # Only create if there's actual IP info (title + empty line + content)
+                # Calculate text box size based on content with precise auto-scaling
+                max_line_length = max(len(line) for line in ip_lines)
+                # More precise width calculation: 5.5 pixels per character + 15px padding
+                text_width = max(180, int(max_line_length * 5.5 + 15))
+                # More precise height calculation: 14px per line + 25px padding
+                text_height = max(70, len(ip_lines) * 14 + 25)
+                
+                element_id = str(self.next_id)
+                self.next_id += 1
+                
+                # Create content with HTML line breaks for DrawIO
+                ip_text = "<br>".join(ip_lines)
+                escaped_ip_text = self._escape_xml(ip_text)
+                
+                # Create element with light blue background for IP info
+                element = f'''<mxCell id="{element_id}" value="{escaped_ip_text}" style="text;html=1;align=left;verticalAlign=top;whiteSpace=wrap;rounded=0;fontSize=10;fontColor=#000000;fillColor=#e3f2fd;strokeColor=#000000;" vertex="1" parent="1">
+                    <mxGeometry x="50" y="0" width="{text_width}" height="{text_height}" as="geometry"/>
+                  </mxCell>'''
+                
+                # Check for collisions before adding
+                bbox = {'x': 50, 'y': 0, 'w': text_width, 'h': text_height}
+                if not spatial_index.overlaps(bbox):
+                    ip_elements.append(element)
+                    spatial_index.insert(bbox, element_id)
+                
+                diagram_bottom_y += text_height + 15  # Move down for next element
+        
+        return ip_elements
+    
+    def _escape_xml_for_html(self, text: str) -> str:
+        """Escape special characters for XML attributes while preserving HTML tags"""
+        # First escape XML special characters
+        escaped = text.replace('&', '&amp;') \
+                     .replace('<', '&lt;') \
+                     .replace('>', '&gt;') \
+                     .replace('"', '&quot;') \
+                     .replace("'", '&apos;')
+        
+        # Then unescape HTML line breaks so they work in DrawIO
+        escaped = escaped.replace('&lt;br&gt;', '<br>')
+        
+        return escaped
+    
+    def generate_drawio_xml(self, topology: TopologyBuilder) -> str:
+        """Generate complete DrawIO XML with simplified label positioning"""
+        # Calculate layout
+        topology.calculate_layout()
+        
+        # Reset ID counter to ensure clean start
+        self.next_id = 2
+        self.device_id_map.clear()
+        
+        # Store topology reference for accessing device information
+        self.topology = topology
+        
+        # Get sorted list of devices
+        sorted_devices = sorted(topology.devices.items(), key=lambda x: x[0])
+        
+        # Create spatial index for collision detection
+        spatial_index = rtree.index.Index()
+        
+        # Process IP information for IP option
+        ip_elements = []
+        diagram_bottom_y = 0
+        
+        if self.args.ip:
+            # Collect IP information for all devices
+            for device_name, device in sorted_devices:
+                device_lines = [f"{device_name}:"]
+                
+                # Add IP information for each interface
+                for interface_name, ip_info in device.interfaces.items():
+                    # Skip loopback and IRB interfaces
+                    if interface_name in ["lo0"] or interface_name.startswith("irb"):
+                        continue
+                    
+                    # Add IP information with correct format
+                    if ip_info:
+                        device_lines.append(f"  {interface_name}: {ip_info}")
+                
+                if len(device_lines) > 1:  # Only add device if it has IP info
+                    ip_lines.extend(device_lines)
+                    ip_lines.append("")  # Empty line between devices
+            
+            # Remove trailing empty line if exists
+            if ip_lines and ip_lines[-1] == "":
+                ip_lines.pop()
+            
+            # Create single text box for all IP information
+            if len(ip_lines) > 2:  # Only create if there's actual IP info (title + empty line + content)
+                # Calculate text box size based on content with precise auto-scaling
+                max_line_length = max(len(line) for line in ip_lines)
+                # More precise width calculation: 5.5 pixels per character + 15px padding
+                text_width = max(180, int(max_line_length * 5.5 + 15))
+                # More precise height calculation: 14px per line + 25px padding
+                text_height = max(70, len(ip_lines) * 14 + 25)
+                
+                element_id = str(self.next_id)
+                self.next_id += 1
+                
+                # Create content with HTML line breaks for DrawIO
+                ip_text = "<br>".join(ip_lines)
+                escaped_ip_text = self._escape_xml(ip_text)
+                
+                # Create element with light blue background for IP info
+                element = f'''<mxCell id="{element_id}" value="{escaped_ip_text}" style="text;html=1;align=left;verticalAlign=top;whiteSpace=wrap;rounded=0;fontSize=10;fontColor=#000000;fillColor=#e3f2fd;strokeColor=#000000;" vertex="1" parent="1">
+                    <mxGeometry x="50" y="0" width="{text_width}" height="{text_height}" as="geometry"/>
+                  </mxCell>'''
+                
+                # Check for collisions before adding
+                bbox = {'x': 50, 'y': 0, 'w': text_width, 'h': text_height}
+                if not spatial_index.overlaps(bbox):
+                    ip_elements.append(element)
+                    spatial_index.insert(bbox, element_id)
+                
+                diagram_bottom_y += text_height + 15  # Move down for next element
+        
+        return ip_elements
+    
+    def _escape_xml_for_html(self, text: str) -> str:
+        """Escape special characters for XML attributes while preserving HTML tags"""
+        # First escape XML special characters
+        escaped = text.replace('&', '&amp;') \
+                     .replace('<', '&lt;') \
+                     .replace('>', '&gt;') \
+                     .replace('"', '&quot;') \
+                     .replace("'", '&apos;')
+        
+        # Then unescape HTML line breaks so they work in DrawIO
+        escaped = escaped.replace('&lt;br&gt;', '<br>')
+        
+        return escaped
+    
+    def generate_drawio_xml(self, topology: TopologyBuilder) -> str:
+        """Generate complete DrawIO XML with simplified label positioning"""
+        # Calculate layout
+        topology.calculate_layout()
+        
+        # Reset ID counter to ensure clean start
+        self.next_id = 2
+        self.device_id_map.clear()
+        
+        # Store topology reference for accessing device information
+        self.topology = topology
+        
+        # Get sorted list of devices
+        sorted_devices = sorted(topology.devices.items(), key=lambda x: x[0])
+        
+        # Create spatial index for collision detection
+        spatial_index = rtree.index.Index()
+        
+        # Process IP information for IP option
+        ip_elements = []
+        diagram_bottom_y = 0
+        
+        if self.args.ip:
+            # Collect IP information for all devices
+            for device_name, device in sorted_devices:
+                device_lines = [f"{device_name}:"]
+                
+                # Add IP information for each interface
+                for interface_name, ip_info in device.interfaces.items():
+                    # Skip loopback and IRB interfaces
+                    if interface_name in ["lo0"] or interface_name.startswith("irb"):
+                        continue
+                    
+                    # Add IP information with correct format
+                    if ip_info:
+                        device_lines.append(f"  {interface_name}: {ip_info}")
+                
+                if len(device_lines) > 1:  # Only add device if it has IP info
+                    ip_lines.extend(device_lines)
+                    ip_lines.append("")  # Empty line between devices
+            
+            # Remove trailing empty line if exists
+            if ip_lines and ip_lines[-1] == "":
+                ip_lines.pop()
+            
+            # Create single text box for all IP information
+            if len(ip_lines) > 2:  # Only create if there's actual IP info (title + empty line + content)
+                # Calculate text box size based on content with precise auto-scaling
+                max_line_length = max(len(line) for line in ip_lines)
+                # More precise width calculation: 5.5 pixels per character + 15px padding
+                text_width = max(180, int(max_line_length * 5.5 + 15))
+                # More precise height calculation: 14px per line + 25px padding
+                text_height = max(70, len(ip_lines) * 14 + 25)
+                
+                element_id = str(self.next_id)
+                self.next_id += 1
+                
+                # Create content with HTML line breaks for DrawIO
+                ip_text = "<br>".join(ip_lines)
+                escaped_ip_text = self._escape_xml(ip_text)
+                
+                # Create element with light blue background for IP info
+                element = f'''<mxCell id="{element_id}" value="{escaped_ip_text}" style="text;html=1;align=left;verticalAlign=top;whiteSpace=wrap;rounded=0;fontSize=10;fontColor=#000000;fillColor=#e3f2fd;strokeColor=#000000;" vertex="1" parent="1">
+                    <mxGeometry x="50" y="0" width="{text_width}" height="{text_height}" as="geometry"/>
+                  </mxCell>'''
+                
+                # Check for collisions before adding
+                bbox = {'x': 50, 'y': 0, 'w': text_width, 'h': text_height}
+                if not spatial_index.overlaps(bbox):
+                    ip_elements.append(element)
+                    spatial_index.insert(bbox, element_id)
+                
+                diagram_bottom_y += text_height + 15  # Move down for next element
+        
+        return ip_elements
+    
+    def _escape_xml_for_html(self, text: str) -> str:
+        """Escape special characters for XML attributes while preserving HTML tags"""
+        # First escape XML special characters
+        escaped = text.replace('&', '&amp;') \
+                     .replace('<', '&lt;') \
+                     .replace('>', '&gt;') \
+                     .replace('"', '&quot;') \
+                     .replace("'", '&apos;')
+        
+        # Then unescape HTML line breaks so they work in DrawIO
+        escaped = escaped.replace('&lt;br&gt;', '<br>')
+        
+        return escaped
+    
+    def generate_drawio_xml(self, topology: TopologyBuilder) -> str:
+        """Generate complete DrawIO XML with simplified label positioning"""
+        # Calculate layout
+        topology.calculate_layout()
+        
+        # Reset ID counter to ensure clean start
+        self.next_id = 2
+        self.device_id_map.clear()
+        
+        # Store topology reference for accessing device information
+        self.topology = topology
+        
+        # Get sorted list of devices
+        sorted_devices = sorted(topology.devices.items(), key=lambda x: x[0])
+        
+        # Create spatial index for collision detection
+        spatial_index = rtree.index.Index()
+        
+        # Process IP information for IP option
+        ip_elements = []
+        diagram_bottom_y = 0
+        
+        if self.args.ip:
+            # Collect IP information for all devices
+            for device_name, device in sorted_devices:
+                device_lines = [f"{device_name}:"]
+                
+                # Add IP information for each interface
+                for interface_name, ip_info in device.interfaces.items():
+                    # Skip loopback and IRB interfaces
+                    if interface_name in ["lo0"] or interface_name.startswith("irb"):
+                        continue
+                    
+                    # Add IP information with correct format
+                    if ip_info:
+                        device_lines.append(f"  {interface_name}: {ip_info}")
+                
+                if len(device_lines) > 1:  # Only add device if it has IP info
+                    ip_lines.extend(device_lines)
+                    ip_lines.append("")  # Empty line between devices
+            
+            # Remove trailing empty line if exists
+            if ip_lines and ip_lines[-1] == "":
+                ip_lines.pop()
+            
+            # Create single text box for all IP information
+            if len(ip_lines) > 2:  # Only create if there's actual IP info (title + empty line + content)
+                # Calculate text box size based on content with precise auto-scaling
+                max_line_length = max(len(line) for line in ip_lines)
+                # More precise width calculation: 5.5 pixels per character + 15px padding
+                text_width = max(180, int(max_line_length * 5.5 + 15))
+                # More precise height calculation: 14px per line + 25px padding
+                text_height = max(70, len(ip_lines) * 14 + 25)
+                
+                element_id = str(self.next_id)
+                self.next_id += 1
+                
+                # Create content with HTML line breaks for DrawIO
+                ip_text = "<br>".join(ip_lines)
+                escaped_ip_text = self._escape_xml(ip_text)
+                
+                # Create element with light blue background for IP info
+                element = f'''<mxCell id="{element_id}" value="{escaped_ip_text}" style="text;html=1;align=left;verticalAlign=top;whiteSpace=wrap;rounded=0;fontSize=10;fontColor=#000000;fillColor=#e3f2fd;strokeColor=#000000;" vertex="1" parent="1">
+                    <mxGeometry x="50" y="0" width="{text_width}" height="{text_height}" as="geometry"/>
+                  </mxCell>'''
+                
+                # Check for collisions before adding
+                bbox = {'x': 50, 'y': 0, 'w': text_width, 'h': text_height}
+                if not spatial_index.overlaps(bbox):
+                    ip_elements.append(element)
+                    spatial_index.insert(bbox, element_id)
+                
+                diagram_bottom_y += text_height + 15  # Move down for next element
+        
+        return ip_elements
+    
+    def _escape_xml_for_html(self, text: str) -> str:
+        """Escape special characters for XML attributes while preserving HTML tags"""
+        # First escape XML special characters
+        escaped = text.replace('&', '&amp;') \
+                     .replace('<', '&lt;') \
+                     .replace('>', '&gt;') \
+                     .replace('"', '&quot;') \
+                     .replace("'", '&apos;')
+        
+        # Then unescape HTML line breaks so they work in DrawIO
+        escaped = escaped.replace('&lt;br&gt;', '<br>')
+        
+        return escaped
+    
+    def generate_drawio_xml(self, topology: TopologyBuilder) -> str:
+        """Generate complete DrawIO XML with simplified label positioning"""
+        # Calculate layout
+        topology.calculate_layout()
+        
+        # Reset ID counter to ensure clean start
+        self.next_id = 2
+        self.device_id_map.clear()
+        
+        # Store topology reference for accessing device information
+        self.topology = topology
+        
+        # Get sorted list of devices
+        sorted_devices = sorted(topology.devices.items(), key=lambda x: x[0])
+        
+        # Create spatial index for collision detection
+        spatial_index = rtree.index.Index()
+        
+        # Process IP information for IP option
+        ip_elements = []
+        diagram_bottom_y = 0
+        
+        if self.args.ip:
+            # Collect IP information for all devices
+            for device_name, device in sorted_devices:
+                device_lines = [f"{device_name}:"]
+                
+                # Add IP information for each interface
+                for interface_name, ip_info in device.interfaces.items():
+                    # Skip loopback and IRB interfaces
+                    if interface_name in ["lo0"] or interface_name.startswith("irb"):
+                        continue
+                    
+                    # Add IP information with correct format
+                    if ip_info:
+                        device_lines.append(f"  {interface_name}: {ip_info}")
+                
+                if len(device_lines) > 1:  # Only add device if it has IP info
+                    ip_lines.extend(device_lines)
+                    ip_lines.append("")  # Empty line between devices
+            
+            # Remove trailing empty line if exists
+            if ip_lines and ip_lines[-1] == "":
+                ip_lines.pop()
+            
+            # Create single text box for all IP information
+            if len(ip_lines) > 2:  # Only create if there's actual IP info (title + empty line + content)
+                # Calculate text box size based on content with precise auto-scaling
+                max_line_length = max(len(line) for line in ip_lines)
+                # More precise width calculation: 5.5 pixels per character + 15px padding
+                text_width = max(180, int(max_line_length * 5.5 + 15))
+                # More precise height calculation: 14px per line + 25px padding
+                text_height = max(70, len(ip_lines) * 14 + 25)
+                
+                element_id = str(self.next_id)
+                self.next_id += 1
+                
+                # Create content with HTML line breaks for DrawIO
+                ip_text = "<br>".join(ip_lines)
+                escaped_ip_text = self._escape_xml(ip_text)
+                
+                # Create element with light blue background for IP info
+                element = f'''<mxCell id="{element_id}" value="{escaped_ip_text}" style="text;html=1;align=left;verticalAlign=top;whiteSpace=wrap;rounded=0;fontSize=10;fontColor=#000000;fillColor=#e3f2fd;strokeColor=#000000;" vertex="1" parent="1">
+                    <mxGeometry x="50" y="0" width="{text_width}" height="{text_height}" as="geometry"/>
+                  </mxCell>'''
+                
+                # Check for collisions before adding
+                bbox = {'x': 50, 'y': 0, 'w': text_width, 'h': text_height}
+                if not spatial_index.overlaps(bbox):
+                    ip_elements.append(element)
+                    spatial_index.insert(bbox, element_id)
+                
+                diagram_bottom_y += text_height + 15  # Move down for next element
+        
+        return ip_elements
+    
+    def _escape_xml_for_html(self, text: str) -> str:
+        """Escape special characters for XML attributes while preserving HTML tags"""
+        # First escape XML special characters
+        escaped = text.replace('&', '&amp;') \
+                     .replace('<', '&lt;') \
+                     .replace('>', '&gt;') \
+                     .replace('"', '&quot;') \
+                     .replace("'", '&apos;')
+        
+        # Then unescape HTML line breaks so they work in DrawIO
+        escaped = escaped.replace('&lt;br&gt;', '<br>')
+        
+        return escaped
+    
+    def generate_drawio_xml(self, topology: TopologyBuilder) -> str:
+        """Generate complete DrawIO XML with simplified label positioning"""
+        # Calculate layout
+        topology.calculate_layout()
+        
+        # Reset ID counter to ensure clean start
+        self.next_id = 2
+        self.device_id_map.clear()
+        
+        # Store topology reference for accessing device information
+        self.topology = topology
+        
+        # Get sorted list of devices
+        sorted_devices = sorted(topology.devices.items(), key=lambda x: x[0])
+        
+        # Create spatial index for collision detection
+        spatial_index = rtree.index.Index()
+        
+        # Process IP information for IP option
+        ip_elements = []
+        diagram_bottom_y = 0
+        
+        if self.args.ip:
+            # Collect IP information for all devices
+            for device_name, device in sorted_devices:
+                device_lines = [f"{device_name}:"]
+                
+                # Add IP information for each interface
+                for interface_name, ip_info in device.interfaces.items():
+                    # Skip loopback and IRB interfaces
+                    if interface_name in ["lo0"] or interface_name.startswith("irb"):
+                        continue
+                    
+                    # Add IP information with correct format
+                    if ip_info:
+                        device_lines.append(f"  {interface_name}: {ip_info}")
+                
+                if len(device_lines) > 1:  # Only add device if it has IP info
+                    ip_lines.extend(device_lines)
+                    ip_lines.append("")  # Empty line between devices
+            
+            # Remove trailing empty line if exists
+            if ip_lines and ip_lines[-1] == "":
+                ip_lines.pop()
+            
+            # Create single text box for all IP information
+            if len(ip_lines) > 2:  # Only create if there's actual IP info (title + empty line + content)
+                # Calculate text box size based on content with precise auto-scaling
+                max_line_length = max(len(line) for line in ip_lines)
+                # More precise width calculation: 5.5 pixels per character + 15px padding
+                text_width = max(180, int(max_line_length * 5.5 + 15))
+                # More precise height calculation: 14px per line + 25px padding
+                text_height = max(70, len(ip_lines) * 14 + 25)
+                
+                element_id = str(self.next_id)
+                self.next_id += 1
+                
+                # Create content with HTML line breaks for DrawIO
+                ip_text = "<br>".join(ip_lines)
+                escaped_ip_text = self._escape_xml(ip_text)
+                
+                # Create element with light blue background for IP info
+                element = f'''<mxCell id="{element_id}" value="{escaped_ip_text}" style="text;html=1;align=left;verticalAlign=top;whiteSpace=wrap;rounded=0;fontSize=10;fontColor=#000000;fillColor=#e3f2fd;strokeColor=#000000;" vertex="1" parent="1">
+                    <mxGeometry x="50" y="0" width="{text_width}" height="{text_height}" as="geometry"/>
+                  </mxCell>'''
+                
+                # Check for collisions before adding
+                bbox = {'x': 50, 'y': 0, 'w': text_width, 'h': text_height}
+                if not spatial_index.overlaps(bbox):
+                    ip_elements.append(element)
+                    spatial_index.insert(bbox, element_id)
+                
+                diagram_bottom_y += text_height + 15  # Move down for next element
+        
+        return ip_elements
+    
+    def _escape_xml_for_html(self, text: str) -> str:
+        """Escape special characters for XML attributes while preserving HTML tags"""
+        # First escape XML special characters
+        escaped = text.replace('&', '&amp;') \
+                     .replace('<', '&lt;') \
+                     .replace('>', '&gt;') \
+                     .replace('"', '&quot;') \
+                     .replace("'", '&apos;')
+        
+        # Then unescape HTML line breaks so they work in DrawIO
+        escaped = escaped.replace('&lt;br&gt;', '<br>')
+        
+        return escaped
+    
+    def generate_drawio_xml(self, topology: TopologyBuilder) -> str:
+        """Generate complete DrawIO XML with simplified label positioning"""
+        # Calculate layout
+        topology.calculate_layout()
+        
+        # Reset ID counter to ensure clean start
+        self.next_id = 2
+        self.device_id_map.clear()
+        
+        # Store topology reference for accessing device information
+        self.topology = topology
+        
+        # Get sorted list of devices
+        sorted_devices = sorted(topology.devices.items(), key=lambda x: x[0])
+        
+        # Create spatial index for collision detection
+        spatial_index = rtree.index.Index()
+        
+        # Process IP information for IP option
+        ip_elements = []
+        diagram_bottom_y = 0
+        
+        if self.args.ip:
+            # Collect IP information for all devices
+            for device_name, device in sorted_devices:
+                device_lines = [f"{device_name}:"]
+                
+                # Add IP information for each interface
+                for interface_name, ip_info in device.interfaces.items():
+                    # Skip loopback and IRB interfaces
+                    if interface_name in ["lo0"] or interface_name.startswith("irb"):
+                        continue
+                    
+                    # Add IP information with correct format
+                    if ip_info:
+                        device_lines.append(f"  {interface_name}: {ip_info}")
+                
+                if len(device_lines) > 1:  # Only add device if it has IP info
+                    ip_lines.extend(device_lines)
+                    ip_lines.append("")  # Empty line between devices
+            
+            # Remove trailing empty line if exists
+            if ip_lines and ip_lines[-1] == "":
+                ip_lines.pop()
+            
+            # Create single text box for all IP information
+            if len(ip_lines) > 2:  # Only create if there's actual IP info (title + empty line + content)
+                # Calculate text box size based on content with precise auto-scaling
+                max_line_length = max(len(line) for line in ip_lines)
+                # More precise width calculation: 5.5 pixels per character + 15px padding
+                text_width = max(180, int(max_line_length * 5.5 + 15))
+                # More precise height calculation: 14px per line + 25px padding
+                text_height = max(70, len(ip_lines) * 14 + 25)
+                
+                element_id = str(self.next_id)
+                self.next_id += 1
+                
+                # Create content with HTML line breaks for DrawIO
+                ip_text = "<br>".join(ip_lines)
+                escaped_ip_text = self._escape_xml(ip_text)
+                
+                # Create element with light blue background for IP info
+                element = f'''<mxCell id="{element_id}" value="{escaped_ip_text}" style="text;html=1;align=left;verticalAlign=top;whiteSpace=wrap;rounded=0;fontSize=10;fontColor=#000000;fillColor=#e3f2fd;strokeColor=#000000;" vertex="1" parent="1">
+                    <mxGeometry x="50" y="0" width="{text_width}" height="{text_height}" as="geometry"/>
+                  </mxCell>'''
+                
+                # Check for collisions before adding
+                bbox = {'x': 50, 'y': 0, 'w': text_width, 'h': text_height}
+                if not spatial_index.overlaps(bbox):
+                    ip_elements.append(element)
+                    spatial_index.insert(bbox, element_id)
+                
+                diagram_bottom_y += text_height + 15  # Move down for next element
+        
+        return ip_elements
+    
+    def _escape_xml_for_html(self, text: str) -> str:
+        """Escape special characters for XML attributes while preserving HTML tags"""
+        # First escape XML special characters
+        escaped = text.replace('&', '&amp;') \
+                     .replace('<', '&lt;') \
+                     .replace('>', '&gt;') \
+                     .replace('"', '&quot;') \
+                     .replace("'", '&apos;')
+        
+        # Then unescape HTML line breaks so they work in DrawIO
+        escaped = escaped.replace('&lt;br&gt;', '<br>')
+        
+        return escaped
+    
+    def generate_drawio_xml(self, topology: TopologyBuilder) -> str:
+        """Generate complete DrawIO XML with simplified label positioning"""
+        # Calculate layout
+        topology.calculate_layout()
+        
+        # Reset ID counter to ensure clean start
+        self.next_id = 2
+        self.device_id_map.clear()
+        
+        # Store topology reference for accessing device information
+        self.topology = topology
+        
+        # Get sorted list of devices
+        sorted_devices = sorted(topology.devices.items(), key=lambda x: x[0])
+        
+        # Create spatial index for collision detection
+        spatial_index = rtree.index.Index()
+        
+        # Process IP information for IP option
+        ip_elements = []
+        diagram_bottom_y = 0
+        
+        if self.args.ip:
+            # Collect IP information for all devices
+            for device_name, device in sorted_devices:
+                device_lines = [f"{device_name}:"]
+                
+                # Add IP information for each interface
+                for interface_name, ip_info in device.interfaces.items():
+                    # Skip loopback and IRB interfaces
+                    if interface_name in ["lo0"] or interface_name.startswith("irb"):
+                        continue
+                    
+                    # Add IP information with correct format
+                    if ip_info:
+                        device_lines.append(f"  {interface_name}: {ip_info}")
+                
+                if len(device_lines) > 1:  # Only add device if it has IP info
+                    ip_lines.extend(device_lines)
+                    ip_lines.append("")  # Empty line between devices
+            
+            # Remove trailing empty line if exists
+            if ip_lines and ip_lines[-1] == "":
+                ip_lines.pop()
+            
+            # Create single text box for all IP information
+            if len(ip_lines) > 2:  # Only create if there's actual IP info (title + empty line + content)
+                # Calculate text box size based on content with precise auto-scaling
+                max_line_length = max(len(line) for line in ip_lines)
+                # More precise width calculation: 5.5 pixels per character + 15px padding
+                text_width = max(180, int(max_line_length * 5.5 + 15))
+                # More precise height calculation: 14px per line + 25px padding
+                text_height = max(70, len(ip_lines) * 14 + 25)
+                
+                element_id = str(self.next_id)
+                self.next_id += 1
+                
+                # Create content with HTML line breaks for DrawIO
+                ip_text = "<br>".join(ip_lines)
+                escaped_ip_text = self._escape_xml(ip_text)
+                
+                # Create element with light blue background for IP info
+                element = f'''<mxCell id="{element_id}" value="{escaped_ip_text}" style="text;html=1;align=left;verticalAlign=top;whiteSpace=wrap;rounded=0;fontSize=10;fontColor=#000000;fillColor=#e3f2fd;strokeColor=#000000;" vertex="1" parent="1">
+                    <mxGeometry x="50" y="0" width="{text_width}" height="{text_height}" as="geometry"/>
+                  </mxCell>'''
+                
+                # Check for collisions before adding
+                bbox = {'x': 50, 'y': 0, 'w': text_width, 'h': text_height}
+                if not spatial_index.overlaps(bbox):
+                    ip_elements.append(element)
+                    spatial_index.insert(bbox, element_id)
+                
+                diagram_bottom_y += text_height + 15  # Move down for next element
+        
+        return ip_elements
+    
+    def _escape_xml_for_html(self, text: str) -> str:
+        """Escape special characters for XML attributes while preserving HTML tags"""
+        # First escape XML special characters
+        escaped = text.replace('&', '&amp;') \
+                     .replace('<', '&lt;') \
+                     .replace('>', '&gt;') \
+                     .replace('"', '&quot;') \
+                     .replace("'", '&apos;')
+        
+        # Then unescape HTML line breaks so they work in DrawIO
+        escaped = escaped.replace('&lt;br&gt;', '<br>')
+        
+        return escaped
+    
+    def generate_drawio_xml(self, topology: TopologyBuilder) -> str:
+        """Generate complete DrawIO XML with simplified label positioning"""
+        # Calculate layout
+        topology.calculate_layout()
+        
+        # Reset ID counter to ensure clean start
+        self.next_id = 2
+        self.device_id_map.clear()
+        
+        # Store topology reference for accessing device information
+        self.topology = topology
+        
+        # Get sorted list of devices
+        sorted_devices = sorted(topology.devices.items(), key=lambda x: x[0])
+        
+        # Create spatial index for collision detection
+        spatial_index = rtree.index.Index()
+        
+        # Process IP information for IP option
+        ip_elements = []
+        diagram_bottom_y = 0
+        
+        if self.args.ip:
+            # Collect IP information for all devices
+            for device_name, device in sorted_devices:
+                device_lines = [f"{device_name}:"]
+                
+                # Add IP information for each interface
+                for interface_name, ip_info in device.interfaces.items():
+                    # Skip loopback and IRB interfaces
+                    if interface_name in ["lo0"] or interface_name.startswith("irb"):
+                        continue
+                    
+                    # Add IP information with correct format
+                    if ip_info:
+                        device_lines.append(f"  {interface_name}: {ip_info}")
+                
+                if len(device_lines) > 1:  # Only add device if it has IP info
+                    ip_lines.extend(device_lines)
+                    ip_lines.append("")  # Empty line between devices
+            
+            # Remove trailing empty line if exists
+            if ip_lines and ip_lines[-1] == "":
+                ip_lines.pop()
+            
+            # Create single text box for all IP information
+            if len(ip_lines) > 2:  # Only create if there's actual IP info (title + empty line + content)
+                # Calculate text box size based on content with precise auto-scaling
+                max_line_length = max(len(line) for line in ip_lines)
+                # More precise width calculation: 5.5 pixels per character + 15px padding
+                text_width = max(180, int(max_line_length * 5.5 + 15))
+                # More precise height calculation: 14px per line + 25px padding
+                text_height = max(70, len(ip_lines) * 14 + 25)
+                
+                element_id = str(self.next_id)
+                self.next_id += 1
+                
+                # Create content with HTML line breaks for DrawIO
+                ip_text = "<br>".join(ip_lines)
+                escaped_ip_text = self._escape_xml(ip_text)
+                
+                # Create element with light blue background for IP info
+                element = f'''<mxCell id="{element_id}" value="{escaped_ip_text}" style="text;html=1;align=left;verticalAlign=top;whiteSpace=wrap;rounded=0;fontSize=10;fontColor=#000000;fillColor=#e3f2fd;strokeColor=#000000;" vertex="1" parent="1">
+                    <mxGeometry x="50" y="0" width="{text_width}" height="{text_height}" as="geometry"/>
+                  </mxCell>'''
+                
+                # Check for collisions before adding
+                bbox = {'x': 50, 'y': 0, 'w': text_width, 'h': text_height}
+                if not spatial_index.overlaps(bbox):
+                    ip_elements.append(element)
+                    spatial_index.insert(bbox, element_id)
+                
+                diagram_bottom_y += text_height + 15  # Move down for next element
+        
+        return ip_elements
+    
+    def _escape_xml_for_html(self, text: str) -> str:
+        """Escape special characters for XML attributes while preserving HTML tags"""
+        # First escape XML special characters
+        escaped = text.replace('&', '&amp;') \
+                     .replace('<', '&lt;') \
+                     .replace('>', '&gt;') \
+                     .replace('"', '&quot;') \
+                     .replace("'", '&apos;')
+        
+        # Then unescape HTML line breaks so they work in DrawIO
+        escaped = escaped.replace('&lt;br&gt;', '<br>')
+        
+        return escaped
+    
+    def generate_drawio_xml(self, topology: TopologyBuilder) -> str:
+        """Generate complete DrawIO XML with simplified label positioning"""
+        # Calculate layout
+        topology.calculate_layout()
+        
+        # Reset ID counter to ensure clean start
+        self.next_id = 2
+        self.device_id_map.clear()
+        
+        # Store topology reference for accessing device information
+        self.topology = topology
+        
+        # Get sorted list of devices
+        sorted_devices = sorted(topology.devices.items(), key=lambda x: x[0])
+        
+        # Create spatial index for collision detection
+        spatial_index = rtree.index.Index()
+        
+        # Process IP information for IP option
+        ip_elements = []
+        diagram_bottom_y = 0
+        
+        if self.args.ip:
+            # Collect IP information for all devices
+            for device_name, device in sorted_devices:
+                device_lines = [f"{device_name}:"]
+                
+                # Add IP information for each interface
+                for interface_name, ip_info in device.interfaces.items():
+                    # Skip loopback and IRB interfaces
+                    if interface_name in ["lo0"] or interface_name.startswith("irb"):
+                        continue
+                    
+                    # Add IP information with correct format
+                    if ip_info:
+                        device_lines.append(f"  {interface_name}: {ip_info}")
+                
+                if len(device_lines) > 1:  # Only add device if it has IP info
+                    ip_lines.extend(device_lines)
+                    ip_lines.append("")  # Empty line between devices
+            
+            # Remove trailing empty line if exists
+            if ip_lines and ip_lines[-1] == "":
+                ip_lines.pop()
+            
+            # Create single text box for all IP information
+            if len(ip_lines) > 2:  # Only create if there's actual IP info (title + empty line + content)
+                # Calculate text box size based on content with precise auto-scaling
+                max_line_length = max(len(line) for line in ip_lines)
+                # More precise width calculation: 5.5 pixels per character + 15px padding
+                text_width = max(180, int(max_line_length * 5.5 + 15))
+                # More precise height calculation: 14px per line + 25px padding
+                text_height = max(70, len(ip_lines) * 14 + 25)
+                
+                element_id = str(self.next_id)
+                self.next_id += 1
+                
+                # Create content with HTML line breaks for DrawIO
+                ip_text = "<br>".join(ip_lines)
+                escaped_ip_text = self._escape_xml(ip_text)
+                
+                # Create element with light blue background for IP info
+                element = f'''<mxCell id="{element_id}" value="{escaped_ip_text}" style="text;html=1;align=left;verticalAlign=top;whiteSpace=wrap;rounded=0;fontSize=10;fontColor=#000000;fillColor=#e3f2fd;strokeColor=#000000;" vertex="1" parent="1">
+                    <mxGeometry x="50" y="0" width="{text_width}" height="{text_height}" as="geometry"/>
+                  </mxCell>'''
+                
+                # Check for collisions before adding
+                bbox = {'x': 50, 'y': 0, 'w': text_width, 'h': text_height}
+                if not spatial_index.overlaps(bbox):
+                    ip_elements.append(element)
+                    spatial_index.insert(bbox, element_id)
+                
+                diagram_bottom_y += text_height + 15  # Move down for next element
+        
+        return ip_elements
+    
+    def _escape_xml_for_html(self, text: str) -> str:
+        """Escape special characters for XML attributes while preserving HTML tags"""
+        # First escape XML special characters
+        escaped = text.replace('&', '&amp;') \
+                     .replace('<', '&lt;') \
+                     .replace('>', '&gt;') \
+                     .replace('"', '&quot;') \
+                     .replace("'", '&apos;')
+        
+        # Then unescape HTML line breaks so they work in DrawIO
+        escaped = escaped.replace('&lt;br&gt;', '<br>')
+        
+        return escaped
+    
+    def generate_drawio_xml(self, topology: TopologyBuilder) -> str:
+        """Generate complete DrawIO XML with simplified label positioning"""
+        # Calculate layout
+        topology.calculate_layout()
+        
+        # Reset ID counter to ensure clean start
+        self.next_id = 2
+        self.device_id_map.clear()
+        
+        # Store topology reference for accessing device information
+        self.topology = topology
+        
+        # Get sorted list of devices
+        sorted_devices = sorted(topology.devices.items(), key=lambda x: x[0])
+        
+        # Create spatial index for collision detection
+        spatial_index = rtree.index.Index()
+        
+        # Process IP information for IP option
+        ip_elements = []
+        diagram_bottom_y = 0
+        
+        if self.args.ip:
+            # Collect IP information for all devices
+            for device_name, device in sorted_devices:
+                device_lines = [f"{device_name}:"]
+                
+                # Add IP information for each interface
+                for interface_name, ip_info in device.interfaces.items():
+                    # Skip loopback and IRB interfaces
+                    if interface_name in ["lo0"] or interface_name.startswith("irb"):
+                        continue
+                    
+                    # Add IP information with correct format
+                    if ip_info:
+                        device_lines.append(f"  {interface_name}: {ip_info}")
+                
+                if len(device_lines) > 1:  # Only add device if it has IP info
+                    ip_lines.extend(device_lines)
+                    ip_lines.append("")  # Empty line between devices
+            
+            # Remove trailing empty line if exists
+            if ip_lines and ip_lines[-1] == "":
+                ip_lines.pop()
+            
+            # Create single text box for all IP information
+            if len(ip_lines) > 2:  # Only create if there's actual IP info (title + empty line + content)
+                # Calculate text box size based on content with precise auto-scaling
+                max_line_length = max(len(line) for line in ip_lines)
+                # More precise width calculation: 5.5 pixels per character + 15px padding
+                text_width = max(180, int(max_line_length * 5.5 + 15))
+                # More precise height calculation: 14px per line + 25px padding
+                text_height = max(70, len(ip_lines) * 14 + 25)
+                
+                element_id = str(self.next_id)
+                self.next_id += 1
+                
+                # Create content with HTML line breaks for DrawIO
+                ip_text = "<br>".join(ip_lines)
+                escaped_ip_text = self._escape_xml(ip_text)
+                
+                # Create element with light blue background for IP info
+                element = f'''<mxCell id="{element_id}" value="{escaped_ip_text}" style="text;html=1;align=left;verticalAlign=top;whiteSpace=wrap;rounded=0;fontSize=10;fontColor=#000000;fillColor=#e3f2fd;strokeColor=#000000;" vertex="1" parent="1">
+                    <mxGeometry x="50" y="0" width="{text_width}" height="{text_height}" as="geometry"/>
+                  </mxCell>'''
+                
+                # Check for collisions before adding
+                bbox = {'x': 50, 'y': 0, 'w': text_width, 'h': text_height}
+                if not spatial_index.overlaps(bbox):
+                    ip_elements.append(element)
+                    spatial_index.insert(bbox, element_id)
+                
+                diagram_bottom_y += text_height + 15  # Move down for next element
+        
+        return ip_elements
+    
+    def _escape_xml_for_html(self, text: str) -> str:
+        """Escape special characters for XML attributes while preserving HTML tags"""
+        # First escape XML special characters
+        escaped = text.replace('&', '&amp;') \
+                     .replace('<', '&lt;') \
+                     .replace('>', '&gt;') \
+                     .replace('"', '&quot;') \
+                     .replace("'", '&apos;')
+        
+        # Then unescape HTML line breaks so they work in DrawIO
+        escaped = escaped.replace('&lt;br&gt;', '<br>')
+        
+        return escaped
+    
+    def generate_drawio_xml(self, topology: TopologyBuilder) -> str:
+        """Generate complete DrawIO XML with simplified label positioning"""
+        # Calculate layout
+        topology.calculate_layout()
+        
+        # Reset ID counter to ensure clean start
+        self.next_id = 2
+        self.device_id_map.clear()
+        
+        # Store topology reference for accessing device information
+        self.topology = topology
+        
+        # Get sorted list of devices
+        sorted_devices = sorted(topology.devices.items(), key=lambda x: x[0])
+        
+        # Create spatial index for collision detection
+        spatial_index = rtree.index.Index()
+        
+        # Process IP information for IP option
+        ip_elements = []
+        diagram_bottom_y = 0
+        
+        if self.args.ip:
+            # Collect IP information for all devices
+            for device_name, device in sorted_devices:
+                device_lines = [f"{device_name}:"]
+                
+                # Add IP information for each interface
+                for interface_name, ip_info in device.interfaces.items():
+                    # Skip loopback and IRB interfaces
+                    if interface_name in ["lo0"] or interface_name.startswith("irb"):
+                        continue
+                    
+                    # Add IP information with correct format
+                    if ip_info:
+                        device_lines.append(f"  {interface_name}: {ip_info}")
+                
+                if len(device_lines) > 1:  # Only add device if it has IP info
+                    ip_lines.extend(device_lines)
+                    ip_lines.append("")  # Empty line between devices
+            
+            # Remove trailing empty line if exists
+            if ip_lines and ip_lines[-1] == "":
+                ip_lines.pop()
+            
+            # Create single text box for all IP information
+            if len(ip_lines) > 2:  # Only create if there's actual IP info (title + empty line + content)
+                # Calculate text box size based on content with precise auto-scaling
+                max_line_length = max(len(line) for line in ip_lines)
+                # More precise width calculation: 5.5 pixels per character + 15px padding
+                text_width = max(180, int(max_line_length * 5.5 + 15))
+                # More precise height calculation: 14px per line + 25px padding
+                text_height = max(70, len(ip_lines) * 14 + 25)
+                
+                element_id = str(self.next_id)
+                self.next_id += 1
+                
+                # Create content with HTML line breaks for DrawIO
+                ip_text = "<br>".join(ip_lines)
+                escaped_ip_text = self._escape_xml(ip_text)
+                
+                # Create element with light blue background for IP info
+                element = f'''<mxCell id="{element_id}" value="{escaped_ip_text}" style="text;html=1;align=left;verticalAlign=top;whiteSpace=wrap;rounded=0;fontSize=10;fontColor=#000000;fillColor=#e3f2fd;strokeColor=#000000;" vertex="1" parent="1">
+                    <mxGeometry x="50" y="0" width="{text_width}" height="{text_height}" as="geometry"/>
+                  </mxCell>'''
+                
+                # Check for collisions before adding
+                bbox = {'x': 50, 'y': 0, 'w': text_width, 'h': text_height}
+                if not spatial_index.overlaps(bbox):
+                    ip_elements.append(element)
+                    spatial_index.insert(bbox, element_id)
+                
+                diagram_bottom_y += text_height + 15  # Move down for next element
+        
+        return ip_elements
+    
+    def _escape_xml_for_html(self, text: str) -> str:
+        """Escape special characters for XML attributes while preserving HTML tags"""
+        # First escape XML special characters
+        escaped = text.replace('&', '&amp;') \
+                     .replace('<', '&lt;') \
+                     .replace('>', '&gt;') \
+                     .replace('"', '&quot;') \
+                     .replace("'", '&apos;')
+        
+        # Then unescape HTML line breaks so they work in DrawIO
+        escaped = escaped.replace('&lt;br&gt;', '<br>')
+        
+        return escaped
+    
+    def generate_drawio_xml(self, topology: TopologyBuilder) -> str:
+        """Generate complete DrawIO XML with simplified label positioning"""
+        # Calculate layout
+        topology.calculate_layout()
+        
+        # Reset ID counter to ensure clean start
+        self.next_id = 2
+        self.device_id_map.clear()
+        
+        # Store topology reference for accessing device information
+        self.topology = topology
+        
+        # Get sorted list of devices
+        sorted_devices = sorted(topology.devices.items(), key=lambda x: x[0])
+        
+        # Create spatial index for collision detection
+        spatial_index = rtree.index.Index()
+        
+        # Process IP information for IP option
+        ip_elements = []
+        diagram_bottom_y = 0
+        
+        if self.args.ip:
+            # Collect IP information for all devices
+            for device_name, device in sorted_devices:
+                device_lines = [f"{device_name}:"]
+                
+                # Add IP information for each interface
+                for interface_name, ip_info in device.interfaces.items():
+                    # Skip loopback and IRB interfaces
+                    if interface_name in ["lo0"] or interface_name.startswith("irb"):
+                        continue
+                    
+                    # Add IP information with correct format
+                    if ip_info:
+                        device_lines.append(f"  {interface_name}: {ip_info}")
+                
+                if len(device_lines) > 1:  # Only add device if it has IP info
+                    ip_lines.extend(device_lines)
+                    ip_lines.append("")  # Empty line between devices
+            
+            # Remove trailing empty line if exists
+            if ip_lines and ip_lines[-1] == "":
+                ip_lines.pop()
+            
+            # Create single text box for all IP information
+            if len(ip_lines) > 2:  # Only create if there's actual IP info (title + empty line + content)
+                # Calculate text box size based on content with precise auto-scaling
+                max_line_length = max(len(line) for line in ip_lines)
+                # More precise width calculation: 5.5 pixels per character + 15px padding
+                text_width = max(180, int(max_line_length * 5.5 + 15))
+                # More precise height calculation: 14px per line + 25px padding
+                text_height = max(70, len(ip_lines) * 14 + 25)
+                
+                element_id = str(self.next_id)
+                self.next_id += 1
+                
+                # Create content with HTML line breaks for DrawIO
+                ip_text = "<br>".join(ip_lines)
+                escaped_ip_text = self._escape_xml(ip_text)
+                
+                # Create element with light blue background for IP info
+                element = f'''<mxCell id="{element_id}" value="{escaped_ip_text}" style="text;html=1;align=left;verticalAlign=top;whiteSpace=wrap;rounded=0;fontSize=10;fontColor=#000000;fillColor=#e3f2fd;strokeColor=#000000;" vertex="1" parent="1">
+                    <mxGeometry x="50" y="0" width="{text_width}" height="{text_height}" as="geometry"/>
+                  </mxCell>'''
+                
+                # Check for collisions before adding
+                bbox = {'x': 50, 'y': 0, 'w': text_width, 'h': text_height}
+                if not spatial_index.overlaps(bbox):
+                    ip_elements.append(element)
+                    spatial_index.insert(bbox, element_id)
+                
+                diagram_bottom_y += text_height + 15  # Move down for next element
+        
+        return ip_elements
+    
+    def _escape_xml_for_html(self, text: str) -> str:
+        """Escape special characters for XML attributes while preserving HTML tags"""
+        # First escape XML special characters
+        escaped = text.replace('&', '&amp;') \
+                     .replace('<', '&lt;') \
+                     .replace('>', '&gt;') \
+                     .replace('"', '&quot;') \
+                     .replace("'", '&apos;')
+        
+        # Then unescape HTML line breaks so they work in DrawIO
+        escaped = escaped.replace('&lt;br&gt;', '<br>')
+        
+        return escaped
+    
+    def generate_drawio_xml(self, topology: TopologyBuilder) -> str:
+        """Generate complete DrawIO XML with simplified label positioning"""
+        # Calculate layout
+        topology.calculate_layout()
+        
+        # Reset ID counter to ensure clean start
+        self.next_id = 2
+        self.device_id_map.clear()
+        
+        # Store topology reference for accessing device information
+        self.topology = topology
+        
+        # Get sorted list of devices
+        sorted_devices = sorted(topology.devices.items(), key=lambda x: x[0])
+        
+        # Create spatial index for collision detection
+        spatial_index = rtree.index.Index()
+        
+        # Process IP information for IP option
+        ip_elements = []
+        diagram_bottom_y = 0
+        
+        if self.args.ip:
+            # Collect IP information for all devices
+            for device_name, device in sorted_devices:
+                device_lines = [f"{device_name}:"]
+                
+                # Add IP information for each interface
+                for interface_name, ip_info in device.interfaces.items():
+                    # Skip loopback and IRB interfaces
+                    if interface_name in ["lo0"] or interface_name.startswith("irb"):
+                        continue
+                    
+                    # Add IP information with correct format
+                    if ip_info:
+                        device_lines.append(f"  {interface_name}: {ip_info}")
+                
+                if len(device_lines) > 1:  # Only add device if it has IP info
+                    ip_lines.extend(device_lines)
+                    ip_lines.append("")  # Empty line between devices
+            
+            # Remove trailing empty line if exists
+            if ip_lines and ip_lines[-1] == "":
+                ip_lines.pop()
+            
+            # Create single text box for all IP information
+            if len(ip_lines) > 2:  # Only create if there's actual IP info (title + empty line + content)
+                # Calculate text box size based on content with precise auto-scaling
+                max_line_length = max(len(line) for line in ip_lines)
+                # More precise width calculation: 5.5 pixels per character + 15px padding
+                text_width = max(180, int(max_line_length * 5.5 + 15))
+                # More precise height calculation: 14px per line + 25px padding
+                text_height = max(70, len(ip_lines) * 14 + 25)
+                
+                element_id = str(self.next_id)
+                self.next_id += 1
+                
+                # Create content with HTML line breaks for DrawIO
+                ip_text = "<br>".join(ip_lines)
+                escaped_ip_text = self._escape_xml(ip_text)
+                
+                # Create element with light blue background for IP info
+                element = f'''<mxCell id="{element_id}" value="{escaped_ip_text}" style="text;html=1;align=left;verticalAlign=top;whiteSpace=wrap;rounded=0;fontSize=10;fontColor=#000000;fillColor=#e3f2fd;strokeColor=#000000;" vertex="1" parent="1">
+                    <mxGeometry x="50" y="0" width="{text_width}" height="{text_height}" as="geometry"/>
+                  </mxCell>'''
+                
+                # Check for collisions before adding
+                bbox = {'x': 50, 'y': 0, 'w': text_width, 'h': text_height}
+                if not spatial_index.overlaps(bbox):
+                    ip_elements.append(element)
+                    spatial_index.insert(bbox, element_id)
+                
+                diagram_bottom_y += text_height + 15  # Move down for next element
+        
+        return ip_elements
+    
+    def _escape_xml_for_html(self, text: str) -> str:
+        """Escape special characters for XML attributes while preserving HTML tags"""
+        # First escape XML special characters
+        escaped = text.replace('&', '&amp;') \
+                     .replace('<', '&lt;') \
+                     .replace('>', '&gt;') \
+                     .replace('"', '&quot;') \
+                     .replace("'", '&apos;')
+        
+        # Then unescape HTML line breaks so they work in DrawIO
+        escaped = escaped.replace('&lt;br&gt;', '<br>')
+        
+        return escaped
+    
+    def generate_drawio_xml(self, topology: TopologyBuilder) -> str:
+        """Generate complete DrawIO XML with simplified label positioning"""
+        # Calculate layout
+        topology.calculate_layout()
+        
+        # Reset ID counter to ensure clean start
+        self.next_id = 2
+        self.device_id_map.clear()
+        
+        # Store topology reference for accessing device information
+        self.topology = topology
+        
+        # Get sorted list of devices
+        sorted_devices = sorted(topology.devices.items(), key=lambda x: x[0])
+        
+        # Create spatial index for collision detection
+        spatial_index = rtree.index.Index()
+        
+        # Process IP information for IP option
+        ip_elements = []
+        diagram_bottom_y = 0
+        
+        if self.args.ip:
+            # Collect IP information for all devices
+            for device_name, device in sorted_devices:
+                device_lines = [f"{device_name}:"]
+                
+                # Add IP information for each interface
+                for interface_name, ip_info in device.interfaces.items():
+                    # Skip loopback and IRB interfaces
+                    if interface_name in ["lo0"] or interface_name.startswith("irb"):
+                        continue
+                    
+                    # Add IP information with correct format
+                    if ip_info:
+                        device_lines.append(f"  {interface_name}: {ip_info}")
+                
+                if len(device_lines) > 1:  # Only add device if it has IP info
+                    ip_lines.extend(device_lines)
+                    ip_lines.append("")  # Empty line between devices
+            
+            # Remove trailing empty line if exists
+            if ip_lines and ip_lines[-1] == "":
+                ip_lines.pop()
+            
+            # Create single text box for all IP information
+            if len(ip_lines) > 2:  # Only create if there's actual IP info (title + empty line + content)
+                # Calculate text box size based on content with precise auto-scaling
+                max_line_length = max(len(line) for line in ip_lines)
+                # More precise width calculation: 5.5 pixels per character + 15px padding
+                text_width = max(180, int(max_line_length * 5.5 + 15))
+                # More precise height calculation: 14px per line + 25px padding
+                text_height = max(70, len(ip_lines) * 14 + 25)
+                
+                element_id = str(self.next_id)
+                self.next_id += 1
+                
+                # Create content with HTML line breaks for DrawIO
+                ip_text = "<br>".join(ip_lines)
+                escaped_ip_text = self._escape_xml(ip_text)
+                
+                # Create element with light blue background for IP info
+                element = f'''<mxCell id="{element_id}" value="{escaped_ip_text}" style="text;html=1;align=left;verticalAlign=top;whiteSpace=wrap;rounded=0;fontSize=10;fontColor=#000000;fillColor=#e3f2fd;strokeColor=#000000;" vertex="1" parent="1">
+                    <mxGeometry x="50" y="0" width="{text_width}" height="{text_height}" as="geometry"/>
+                  </mxCell>'''
+                
+                # Check for collisions before adding
+                bbox = {'x': 50, 'y': 0, 'w': text_width, 'h': text_height}
+                if not spatial_index.overlaps(bbox):
+                    ip_elements.append(element)
+                    spatial_index.insert(bbox, element_id)
+                
+                diagram_bottom_y += text_height + 15  # Move down for next element
+        
+        return ip_elements
+    
+    def _escape_xml_for_html(self, text: str) -> str:
+        """Escape special characters for XML attributes while preserving HTML tags"""
+        # First escape XML special characters
+        escaped = text.replace('&', '&amp;') \
+                     .replace('<', '&lt;') \
+                     .replace('>', '&gt;') \
+                     .replace('"', '&quot;') \
+                     .replace("'", '&apos;')
+        
+        # Then unescape HTML line breaks so they work in DrawIO
+        escaped = escaped.replace('&lt;br&gt;', '<br>')
+        
+        return escaped
+    
+    def generate_drawio_xml(self, topology: TopologyBuilder) -> str:
+        """Generate complete DrawIO XML with simplified label positioning"""
+        # Calculate layout
+        topology.calculate_layout()
+        
+        # Reset ID counter to ensure clean start
+        self.next_id = 2
+        self.device_id_map.clear()
+        
+        # Store topology reference for accessing device information
+        self.topology = topology
+        
+        # Get sorted list of devices
+        sorted_devices = sorted(topology.devices.items(), key=lambda x: x[0])
+        
+        # Create spatial index for collision detection
+        spatial_index = rtree.index.Index()
+        
+        # Process IP information for IP option
+        ip_elements = []
+        diagram_bottom_y = 0
+        
+        if self.args.ip:
+            # Collect IP information for all devices
+            for device_name, device in sorted_devices:
+                device_lines = [f"{device_name}:"]
+                
+                # Add IP information for each interface
+                for interface_name, ip_info in device.interfaces.items():
+                    # Skip loopback and IRB interfaces
+                    if interface_name in ["lo0"] or interface_name.startswith("irb"):
+                        continue
+                    
+                    # Add IP information with correct format
+                    if ip_info:
+                        device_lines.append(f"  {interface_name}: {ip_info}")
+                
+                if len(device_lines) > 1:  # Only add device if it has IP info
+                    ip_lines.extend(device_lines)
+                    ip_lines.append("")  # Empty line between devices
+            
+            # Remove trailing empty line if exists
+            if ip_lines and ip_lines[-1] == "":
+                ip_lines.pop()
+            
+            # Create single text box for all IP information
+            if len(ip_lines) > 2:  # Only create if there's actual IP info (title + empty line + content)
+                # Calculate text box size based on content with precise auto-scaling
+                max_line_length = max(len(line) for line in ip_lines)
+                # More precise width calculation: 5.5 pixels per character + 15px padding
+                text_width = max(180, int(max_line_length * 5.5 + 15))
+                # More precise height calculation: 14px per line + 25px padding
+                text_height = max(70, len(ip_lines) * 14 + 25)
+                
+                element_id = str(self.next_id)
+                self.next_id += 1
+                
+                # Create content with HTML line breaks for DrawIO
+                ip_text = "<br>".join(ip_lines)
+                escaped_ip_text = self._escape_xml(ip_text)
+                
+                # Create element with light blue background for IP info
+                element = f'''<mxCell id="{element_id}" value="{escaped_ip_text}" style="text;html=1;align=left;verticalAlign=top;whiteSpace=wrap;rounded=0;fontSize=10;fontColor=#000000;fillColor=#e3f2fd;strokeColor=#000000;" vertex="1" parent="1">
+                    <mxGeometry x="50" y="0" width="{text_width}" height="{text_height}" as="geometry"/>
+                  </mxCell>'''
+                
+                # Check for collisions before adding
+                bbox = {'x': 50, 'y': 0, 'w': text_width, 'h': text_height}
+                if not spatial_index.overlaps(bbox):
+                    ip_elements.append(element)
+                    spatial_index.insert(bbox, element_id)
+                
+                diagram_bottom_y += text_height + 15  # Move down for next element
+        
+        return ip_elements
+    
+    def _escape_xml_for_html(self, text: str) -> str:
+        """Escape special characters for XML attributes while preserving HTML tags"""
+        # First escape XML special characters
+        escaped = text.replace('&', '&amp;') \
+                     .replace('<', '&lt;') \
+                     .replace('>', '&gt;') \
+                     .replace('"', '&quot;') \
+                     .replace("'", '&apos;')
+        
+        # Then unescape HTML line breaks so they work in DrawIO
+        escaped = escaped.replace('&lt;br&gt;', '<br>')
+        
+        return escaped
+    
+    def generate_drawio_xml(self, topology: TopologyBuilder) -> str:
+        """Generate complete DrawIO XML with simplified label positioning"""
+        # Calculate layout
+        topology.calculate_layout()
+        
+        # Reset ID counter to ensure clean start
+        self.next_id = 2
+        self.device_id_map.clear()
+        
+        # Store topology reference for accessing device information
+        self.topology = topology
+        
+        # Get sorted list of devices
+        sorted_devices = sorted(topology.devices.items(), key=lambda x: x[0])
+        
+        # Create spatial index for collision detection
+        spatial_index = rtree.index.Index()
+        
+        # Process IP information for IP option
+        ip_elements = []
+        diagram_bottom_y = 0
+        
+        if self.args.ip:
+            # Collect IP information for all devices
+            for device_name, device in sorted_devices:
+                device_lines = [f"{device_name}:"]
+                
+                # Add IP information for each interface
+                for interface_name, ip_info in device.interfaces.items():
+                    # Skip loopback and IRB interfaces
+                    if interface_name in ["lo0"] or interface_name.startswith("irb"):
+                        continue
+                    
+                    # Add IP information with correct format
+                    if ip_info:
+                        device_lines.append(f"  {interface_name}: {ip_info}")
+                
+                if len(device_lines) > 1:  # Only add device if it has IP info
+                    ip_lines.extend(device_lines)
+                    ip_lines.append("")  # Empty line between devices
+            
+            # Remove trailing empty line if exists
+            if ip_lines and ip_lines[-1] == "":
+                ip_lines.pop()
+            
+            # Create single text box for all IP information
+            if len(ip_lines) > 2:  # Only create if there's actual IP info (title + empty line + content)
+                # Calculate text box size based on content with precise auto-scaling
+                max_line_length = max(len(line) for line in ip_lines)
+                # More precise width calculation: 5.5 pixels per character + 15px padding
+                text_width = max(180, int(max_line_length * 5.5 + 15))
+                # More precise height calculation: 14px per line + 25px padding
+                text_height = max(70, len(ip_lines) * 14 + 25)
+                
+                element_id = str(self.next_id)
+                self.next_id += 1
+                
+                # Create content with HTML line breaks for DrawIO
+                ip_text = "<br>".join(ip_lines)
+                escaped_ip_text = self._escape_xml(ip_text)
+                
+                # Create element with light blue background for IP info
+                element = f'''<mxCell id="{element_id}" value="{escaped_ip_text}" style="text;html=1;align=left;verticalAlign=top;whiteSpace=wrap;rounded=0;fontSize=10;fontColor=#000000;fillColor=#e3f2fd;strokeColor=#000000;" vertex="1" parent="1">
+                    <mxGeometry x="50" y="0" width="{text_width}" height="{text_height}" as="geometry"/>
+                  </mxCell>'''
+                
+                # Check for collisions before adding
+                bbox = {'x': 50, 'y': 0, 'w': text_width, 'h': text_height}
+                if not spatial_index.overlaps(bbox):
+                    ip_elements.append(element)
+                    spatial_index.insert(bbox, element_id)
+                
+                diagram_bottom_y += text_height + 15  # Move down for next element
+        
+        return ip_elements
+    
+    def _escape_xml_for_html(self, text: str) -> str:
+        """Escape special characters for XML attributes while preserving HTML tags"""
+        # First escape XML special characters
+        escaped = text.replace('&', '&amp;') \
+                     .replace('<', '&lt;') \
+                     .replace('>', '&gt;') \
+                     .replace('"', '&quot;') \
+                     .replace("'", '&apos;')
+        
+        # Then unescape HTML line breaks so they work in DrawIO
+        escaped = escaped.replace('&lt;br&gt;', '<br>')
+        
+        return escaped
+    
+    def generate_drawio_xml(self, topology: TopologyBuilder) -> str:
+        """Generate complete DrawIO XML with simplified label positioning"""
+        # Calculate layout
+        topology.calculate_layout()
+        
+        # Reset ID counter to ensure clean start
+        self.next_id = 2
+        self.device_id_map.clear()
+        
+        # Store topology reference for accessing device information
+        self.topology = topology
+        
+        # Get sorted list of devices
+        sorted_devices = sorted(topology.devices.items(), key=lambda x: x[0])
+        
+        # Create spatial index for collision detection
+        spatial_index = rtree.index.Index()
+        
+        # Process IP information for IP option
+        ip_elements = []
+        diagram_bottom_y = 0
+        
+        if self.args.ip:
+            # Collect IP information for all devices
+            for device_name, device in sorted_devices:
+                device_lines = [f"{device_name}:"]
+                
+                # Add IP information for each interface
+                for interface_name, ip_info in device.interfaces.items():
+                    # Skip loopback and IRB interfaces
+                    if interface_name in ["lo0"] or interface_name.startswith("irb"):
+                        continue
+                    
+                    # Add IP information with correct format
+                    if ip_info:
+                        device_lines.append(f"  {interface_name}: {ip_info}")
+                
+                if len(device_lines) > 1:  # Only add device if it has IP info
+                    ip_lines.extend(device_lines)
+                    ip_lines.append("")  # Empty line between devices
+            
+            # Remove trailing empty line if exists
+            if ip_lines and ip_lines[-1] == "":
+                ip_lines.pop()
+            
+            # Create single text box for all IP information
+            if len(ip_lines) > 2:  # Only create if there's actual IP info (title + empty line + content)
+                # Calculate text box size based on content with precise auto-scaling
+                max_line_length = max(len(line) for line in ip_lines)
+                # More precise width calculation: 5.5 pixels per character + 15px padding
+                text_width = max(180, int(max_line_length * 5.5 + 15))
+                # More precise height calculation: 14px per line + 25px padding
+                text_height = max(70, len(ip_lines) * 14 + 25)
+                
+                element_id = str(self.next_id)
+                self.next_id += 1
+                
+                # Create content with HTML line breaks for DrawIO
+                ip_text = "<br>".join(ip_lines)
+                escaped_ip_text = self._escape_xml(ip_text)
+                
+                # Create element with light blue background for IP info
+                element = f'''<mxCell id="{element_id}" value="{escaped_ip_text}" style="text;html=1;align=left;verticalAlign=top;whiteSpace=wrap;rounded=0;fontSize=10;fontColor=#000000;fillColor=#e3f2fd;strokeColor=#000000;" vertex="1" parent="1">
+                    <mxGeometry x="50" y="0" width="{text_width}" height="{text_height}" as="geometry"/>
+                  </mxCell>'''
+                
+                # Check for collisions before adding
+                bbox = {'x': 50, 'y': 0, 'w': text_width, 'h': text_height}
+                if not spatial_index.overlaps(bbox):
+                    ip_elements.append(element)
+                    spatial_index.insert(bbox, element_id)
+                
+                diagram_bottom_y += text_height + 15  # Move down for next element
+        
+        return ip_elements
+    
+    def _escape_xml_for_html(self, text: str) -> str:
+        """Escape special characters for XML attributes while preserving HTML tags"""
+        # First escape XML special characters
+        escaped = text.replace('&', '&amp;') \
+                     .replace('<', '&lt;') \
+                     .replace('>', '&gt;') \
+                     .replace('"', '&quot;') \
+                     .replace("'", '&apos;')
+        
+        # Then unescape HTML line breaks so they work in DrawIO
+        escaped = escaped.replace('&lt;br&gt;', '<br>')
+        
+        return escaped
+    
+    def generate_drawio_xml(self, topology: TopologyBuilder) -> str:
+        """Generate complete DrawIO XML with simplified label positioning"""
+        # Calculate layout
+        topology.calculate_layout()
+        
+        # Reset ID counter to ensure clean start
+        self.next_id = 2
+        self.device_id_map.clear()
+        
+        # Store topology reference for accessing device information
+        self.topology = topology
+        
+        # Get sorted list of devices
+        sorted_devices = sorted(topology.devices.items(), key=lambda x: x[0])
+        
+        # Create spatial index for collision detection
+        spatial_index = rtree.index.Index()
+        
+        # Process IP information for IP option
+        ip_elements = []
+        diagram_bottom_y = 0
+        
+        if self.args.ip:
+            # Collect IP information for all devices
+            for device_name, device in sorted_devices:
+                device_lines = [f"{device_name}:"]
+                
+                # Add IP information for each interface
+                for interface_name, ip_info in device.interfaces.items():
+                    # Skip loopback and IRB interfaces
+                    if interface_name in ["lo0"] or interface_name.startswith("irb"):
+                        continue
+                    
+                    # Add IP information with correct format
+                    if ip_info:
+                        device_lines.append(f"  {interface_name}: {ip_info}")
+                
+                if len(device_lines) > 1:  # Only add device if it has IP info
+                    ip_lines.extend(device_lines)
+                    ip_lines.append("")  # Empty line between devices
+            
+            # Remove trailing empty line if exists
+            if ip_lines and ip_lines[-1] == "":
+                ip_lines.pop()
+            
+            # Create single text box for all IP information
+            if len(ip_lines) > 2:  # Only create if there's actual IP info (title + empty line + content)
+                # Calculate text box size based on content with precise auto-scaling
+                max_line_length = max(len(line) for line in ip_lines)
+                # More precise width calculation: 5.5 pixels per character + 15px padding
+                text_width = max(180, int(max_line_length * 5.5 + 15))
+                # More precise height calculation: 14px per line + 25px padding
+                text_height = max(70, len(ip_lines) * 14 + 25)
+                
+                element_id = str(self.next_id)
+                self.next_id += 1
+                
+                # Create content with HTML line breaks for DrawIO
+                ip_text = "<br>".join(ip_lines)
+                escaped_ip_text = self._escape_xml(ip_text)
+                
+                # Create element with light blue background for IP info
+                element = f'''<mxCell id="{element_id}" value="{escaped_ip_text}" style="text;html=1;align=left;verticalAlign=top;whiteSpace=wrap;rounded=0;fontSize=10;fontColor=#000000;fillColor=#e3f2fd;strokeColor=#000000;" vertex="1" parent="1">
+                    <mxGeometry x="50" y="0" width="{text_width}" height="{text_height}" as="geometry"/>
+                  </mxCell>'''
+                
+                # Check for collisions before adding
+                bbox = {'x': 50, 'y': 0, 'w': text_width, 'h': text_height}
+                if not spatial_index.overlaps(bbox):
+                    ip_elements.append(element)
+                    spatial_index.insert(bbox, element_id)
+                
+                diagram_bottom_y += text_height + 15  # Move down for next element
+        
+        return ip_elements
+    
+    def _escape_xml_for_html(self, text: str) -> str:
+        """Escape special characters for XML attributes while preserving HTML tags"""
+        # First escape XML special characters
+        escaped = text.replace('&', '&amp;') \
+                     .replace('<', '&lt;') \
+                     .replace('>', '&gt;') \
+                     .replace('"', '&quot;') \
+                     .replace("'", '&apos;')
+        
+        # Then unescape HTML line breaks so they work in DrawIO
+        escaped = escaped.replace('&lt;br&gt;', '<br>')
+        
+        return escaped
+    
+    def generate_drawio_xml(self, topology: TopologyBuilder) -> str:
+        """Generate complete DrawIO XML with simplified label positioning"""
+        # Calculate layout
+        topology.calculate_layout()
+        
+        # Reset ID counter to ensure clean start
+        self.next_id = 2
+        self.device_id_map.clear()
+        
+        # Store topology reference for accessing device information
+        self.topology = topology
+        
+        # Get sorted list of devices
+        sorted_devices = sorted(topology.devices.items(), key=lambda x: x[0])
+        
+        # Create spatial index for collision detection
+        spatial_index = rtree.index.Index()
+        
+        # Process IP information for IP option
+        ip_elements = []
+        diagram_bottom_y = 0
+        
+        if self.args.ip:
+            # Collect IP information for all devices
+            for device_name, device in sorted_devices:
+                device_lines = [f"{device_name}:"]
+                
+                # Add IP information for each interface
+                for interface_name, ip_info in device.interfaces.items():
+                    # Skip loopback and IRB interfaces
+                    if interface_name in ["lo0"] or interface_name.startswith("irb"):
+                        continue
+                    
+                    # Add IP information with correct format
+                    if ip_info:
+                        device_lines.append(f"  {interface_name}: {ip_info}")
+                
+                if len(device_lines) > 1:  # Only add device if it has IP info
+                    ip_lines.extend(device_lines)
+                    ip_lines.append("")  # Empty line between devices
+            
+            # Remove trailing empty line if exists
+            if ip_lines and ip_lines[-1] == "":
+                ip_lines.pop()
+            
+            # Create single text box for all IP information
+            if len(ip_lines) > 2:  # Only create if there's actual IP info (title + empty line + content)
+                # Calculate text box size based on content with precise auto-scaling
+                max_line_length = max(len(line) for line in ip_lines)
+                # More precise width calculation: 5.5 pixels per character + 15px padding
+                text_width = max(180, int(max_line_length * 5.5 + 15))
+                # More precise height calculation: 14px per line + 25px padding
+                text_height = max(70, len(ip_lines) * 14 + 25)
+                
+                element_id = str(self.next_id)
+                self.next_id += 1
+                
+                # Create content with HTML line breaks for DrawIO
+                ip_text = "<br>".join(ip_lines)
+                escaped_ip_text = self._escape_xml(ip_text)
+                
+                # Create element with light blue background for IP info
+                element = f'''<mxCell id="{element_id}" value="{escaped_ip_text}" style="text;html=1;align=left;verticalAlign=top;whiteSpace=wrap;rounded=0;fontSize=10;fontColor=#000000;fillColor=#e3f2fd;strokeColor=#000000;" vertex="1" parent="1">
+                    <mxGeometry x="50" y="0" width="{text_width}" height="{text_height}" as="geometry"/>
+                  </mxCell>'''
+                
+                # Check for collisions before adding
+                bbox = {'x': 50, 'y': 0, 'w': text_width, 'h': text_height}
+                if not spatial_index.overlaps(bbox):
+                    ip_elements.append(element)
+                    spatial_index.insert(bbox, element_id)
+                
+                diagram_bottom_y += text_height + 15  # Move down for next element
+        
+        return ip_elements
+    
+    def _escape_xml_for_html(self, text: str) -> str:
+        """Escape special characters for XML attributes while preserving HTML tags"""
+        # First escape XML special characters
+        escaped = text.replace('&', '&amp;') \
+                     .replace('<', '&lt;') \
+                     .replace('>', '&gt;') \
+                     .replace('"', '&quot;') \
+                     .replace("'", '&apos;')
+        
+        # Then unescape HTML line breaks so they work in DrawIO
+        escaped = escaped.replace('&lt;br&gt;', '<br>')
+        
+        return escaped
+    
+    def generate_drawio_xml(self, topology: TopologyBuilder) -> str:
+        """Generate complete DrawIO XML with simplified label positioning"""
+        # Calculate layout
+        topology.calculate_layout()
+        
+        # Reset ID counter to ensure clean start
+        self.next_id = 2
+        self.device_id_map.clear()
+        
+        # Store topology reference for accessing device information
+        self.topology = topology
+        
+        # Get sorted list of devices
+        sorted_devices = sorted(topology.devices.items(), key=lambda x: x[0])
+        
+        # Create spatial index for collision detection
+        spatial_index = rtree.index.Index()
+        
+        # Process IP information for IP option
+        ip_elements = []
+        diagram_bottom_y = 0
+        
+        if self.args.ip:
+            # Collect IP information for all devices
+            for device_name, device in sorted_devices:
+                device_lines = [f"{device_name}:"]
+                
+                # Add IP information for each interface
+                for interface_name, ip_info in device.interfaces.items():
+                    # Skip loopback and IRB interfaces
+                    if interface_name in ["lo0"] or interface_name.startswith("irb"):
+                        continue
+                    
+                    # Add IP information with correct format
+                    if ip_info:
+                        device_lines.append(f"  {interface_name}: {ip_info}")
+                
+                if len(device_lines) > 1:  # Only add device if it has IP info
+                    ip_lines.extend(device_lines)
+                    ip_lines.append("")  # Empty line between devices
+            
+            # Remove trailing empty line if exists
+            if ip_lines and ip_lines[-1] == "":
+                ip_lines.pop()
+            
+            # Create single text box for all IP information
+            if len(ip_lines) > 2:  # Only create if there's actual IP info (title + empty line + content)
+                # Calculate text box size based on content with precise auto-scaling
+                max_line_length = max(len(line) for line in ip_lines)
+                # More precise width calculation: 5.5 pixels per character + 15px padding
+                text_width = max(180, int(max_line_length * 5.5 + 15))
+                # More precise height calculation: 14px per line + 25px padding
+                text_height = max(70, len(ip_lines) * 14 + 25)
+                
+                element_id = str(self.next_id)
+                self.next_id += 1
+                
+                # Create content with HTML line breaks for DrawIO
+                ip_text = "<br>".join(ip_lines)
+                escaped_ip_text = self._escape_xml(ip_text)
+                
+                # Create element with light blue background for IP info
+                element = f'''<mxCell id="{element_id}" value="{escaped_ip_text}" style="text;html=1;align=left;verticalAlign=top;whiteSpace=wrap;rounded=0;fontSize=10;fontColor=#000000;fillColor=#e3f2fd;strokeColor=#000000;" vertex="1" parent="1">
+                    <mxGeometry x="50" y="0" width="{text_width}" height="{text_height}" as="geometry"/>
+                  </mxCell>'''
+                
+                # Check for collisions before adding
+                bbox = {'x': 50, 'y': 0, 'w': text_width, 'h': text_height}
+                if not spatial_index.overlaps(bbox):
+                    ip_elements.append(element)
+                    spatial_index.insert(bbox, element_id)
+                
+                diagram_bottom_y += text_height + 15  # Move down for next element
+        
+        return ip_elements
+    
+    def _escape_xml_for_html(self, text: str) -> str:
+        """Escape special characters for XML attributes while preserving HTML tags"""
+        # First escape XML special characters
+        escaped = text.replace('&', '&amp;') \
+                     .replace('<', '&lt;') \
+                     .replace('>', '&gt;') \
+                     .replace('"', '&quot;') \
+                     .replace("'", '&apos;')
+        
+        # Then unescape HTML line breaks so they work in DrawIO
+        escaped = escaped.replace('&lt;br&gt;', '<br>')
+        
+        return escaped
+    
+    def generate_drawio_xml(self, topology: TopologyBuilder) -> str:
+        """Generate complete DrawIO XML with simplified label positioning"""
+        # Calculate layout
+        topology.calculate_layout()
+        
+        # Reset ID counter to ensure clean start
+        self.next_id = 2
+        self.device_id_map.clear()
+        
+        # Store topology reference for accessing device information
+        self.topology = topology
+        
+        # Get sorted list of devices
+        sorted_devices = sorted(topology.devices.items(), key=lambda x: x[0])
+        
+        # Create spatial index for collision detection
+        spatial_index = rtree.index.Index()
+        
+        # Process IP information for IP option
+        ip_elements = []
+        diagram_bottom_y = 0
+        
+        if self.args.ip:
+            # Collect IP information for all devices
+            for device_name, device in sorted_devices:
+                device_lines = [f"{device_name}:"]
+                
+                # Add IP information for each interface
+                for interface_name, ip_info in device.interfaces.items():
+                    # Skip loopback and IRB interfaces
+                    if interface_name in ["lo0"] or interface_name.startswith("irb"):
+                        continue
+                    
+                    # Add IP information with correct format
+                    if ip_info:
+                        device_lines.append(f"  {interface_name}: {ip_info}")
+                
+                if len(device_lines) > 1:  # Only add device if it has IP info
+                    ip_lines.extend(device_lines)
+                    ip_lines.append("")  # Empty line between devices
+            
+            # Remove trailing empty line if exists
+            if ip_lines and ip_lines[-1] == "":
+                ip_lines.pop()
+            
+            # Create single text box for all IP information
+            if len(ip_lines) > 2:  # Only create if there's actual IP info (title + empty line + content)
+                # Calculate text box size based on content with precise auto-scaling
+                max_line_length = max(len(line) for line in ip_lines)
+                # More precise width calculation: 5.5 pixels per character + 15px padding
+                text_width = max(180, int(max_line_length * 5.5 + 15))
+                # More precise height calculation: 14px per line + 25px padding
+                text_height = max(70, len(ip_lines) * 14 + 25)
+                
+                element_id = str(self.next_id)
+                self.next_id += 1
+                
+                # Create content with HTML line breaks for DrawIO
+                ip_text = "<br>".join(ip_lines)
+                escaped_ip_text = self._escape_xml(ip_text)
+                
+                # Create element with light blue background for IP info
+                element = f'''<mxCell id="{element_id}" value="{escaped_ip_text}" style="text;html=1;align=left;verticalAlign=top;whiteSpace=wrap;rounded=0;fontSize=10;fontColor=#000000;fillColor=#e3f2fd;strokeColor=#000000;" vertex="1" parent="1">
+                    <mxGeometry x="50" y="0" width="{text_width}" height="{text_height}" as="geometry"/>
+                  </mxCell>'''
+                
+                # Check for collisions before adding
+                bbox = {'x': 50, 'y': 0, 'w': text_width, 'h': text_height}
+                if not spatial_index.overlaps(bbox):
+                    ip_elements.append(element)
+                    spatial_index.insert(bbox, element_id)
+                
+                diagram_bottom_y += text_height + 15  # Move down for next element
+        
+        return ip_elements
+    
+    def _escape_xml_for_html(self, text: str) -> str:
+        """Escape special characters for XML attributes while preserving HTML tags"""
+        # First escape XML special characters
+        escaped = text.replace('&', '&amp;') \
+                     .replace('<', '&lt;') \
+                     .replace('>', '&gt;') \
+                     .replace('"', '&quot;') \
+                     .replace("'", '&apos;')
+        
+        # Then unescape HTML line breaks so they work in DrawIO
+        escaped = escaped.replace('&lt;br&gt;', '<br>')
+        
+        return escaped
+    
+    def generate_drawio_xml(self, topology: TopologyBuilder) -> str:
+        """Generate complete DrawIO XML with simplified label positioning"""
+        # Calculate layout
+        topology.calculate_layout()
+        
+        # Reset ID counter to ensure clean start
+        self.next_id = 2
+        self.device_id_map.clear()
+        
+        # Store topology reference for accessing device information
+        self.topology = topology
+        
+        # Get sorted list of devices
+        sorted_devices = sorted(topology.devices.items(), key=lambda x: x[0])
+        
+        # Create spatial index for collision detection
+        spatial_index = rtree.index.Index()
+        
+        # Process IP information for IP option
+        ip_elements = []
+        diagram_bottom_y = 0
+        
+        if self.args.ip:
+            # Collect IP information for all devices
+            for device_name, device in sorted_devices:
+                device_lines = [f"{device_name}:"]
+                
+                # Add IP information for each interface
+                for interface_name, ip_info in device.interfaces.items():
+                    # Skip loopback and IRB interfaces
+                    if interface_name in ["lo0"] or interface_name.startswith("irb"):
+                        continue
+                    
+                    # Add IP information with correct format
+                    if ip_info:
+                        device_lines.append(f"  {interface_name}: {ip_info}")
+                
+                if len(device_lines) > 1:  # Only add device if it has IP info
+                    ip_lines.extend(device_lines)
+                    ip_lines.append("")  # Empty line between devices
+            
+            # Remove trailing empty line if exists
+            if ip_lines and ip_lines[-1] == "":
+                ip_lines.pop()
+            
+            # Create single text box for all IP information
+            if len(ip_lines) > 2:  # Only create if there's actual IP info (title + empty line + content)
+                # Calculate text box size based on content with precise auto-scaling
+                max_line_length = max(len(line) for line in ip_lines)
+                # More precise width calculation: 5.5 pixels per character + 15px padding
+                text_width = max(180, int(max_line_length * 5.5 + 15))
+                # More precise height calculation: 14px per line + 25px padding
+                text_height = max(70, len(ip_lines) * 14 + 25)
+                
+                element_id = str(self.next_id)
+                self.next_id += 1
+                
+                # Create content with HTML line breaks for DrawIO
+                ip_text = "<br>".join(ip_lines)
+                escaped_ip_text = self._escape_xml(ip_text)
+                
+                # Create element with light blue background for IP info
+                element = f'''<mxCell id="{element_id}" value="{escaped_ip_text}" style="text;html=1;align=left;verticalAlign=top;whiteSpace=wrap;rounded=0;fontSize=10;fontColor=#000000;fillColor=#e3f2fd;strokeColor=#000000;" vertex="1" parent="1">
+                    <mxGeometry x="50" y="0" width="{text_width}" height="{text_height}" as="geometry"/>
+                  </mxCell>'''
+                
+                # Check for collisions before adding
+                bbox = {'x': 50, 'y': 0, 'w': text_width, 'h': text_height}
+                if not spatial_index.overlaps(bbox):
+                    ip_elements.append(element)
+                    spatial_index.insert(bbox, element_id)
+                
+                diagram_bottom_y += text_height + 15  # Move down for next element
+        
+        return ip_elements
+    
+    def _escape_xml_for_html(self, text: str) -> str:
+        """Escape special characters for XML attributes while preserving HTML tags"""
+        # First escape XML special characters
+        escaped = text.replace('&', '&amp;') \
+                     .replace('<', '&lt;') \
+                     .replace('>', '&gt;') \
+                     .replace('"', '&quot;') \
+                     .replace("'", '&apos;')
+        
+        # Then unescape HTML line breaks so they work in DrawIO
+        escaped = escaped.replace('&lt;br&gt;', '<br>')
+        
+        return escaped
+    
+    def generate_drawio_xml(self, topology: TopologyBuilder) -> str:
+        """Generate complete DrawIO XML with simplified label positioning"""
+        # Calculate layout
+        topology.calculate_layout()
+        
+        # Reset ID counter to ensure clean start
+        self.next_id = 2
+        self.device_id_map.clear()
+        
+        # Store topology reference for accessing device information
+        self.topology = topology
+        
+        # Get sorted list of devices
+        sorted_devices = sorted(topology.devices.items(), key=lambda x: x[0])
+        
+        # Create spatial index for collision detection
+        spatial_index = rtree.index.Index()
+        
+        # Process IP information for IP option
+        ip_elements = []
+        diagram_bottom_y = 0
+        
+        if self.args.ip:
+            # Collect IP information for all devices
+            for device_name, device in sorted_devices:
+                device_lines = [f"{device_name}:"]
+                
+                # Add IP information for each interface
+                for interface_name, ip_info in device.interfaces.items():
+                    # Skip loopback and IRB interfaces
+                    if interface_name in ["lo0"] or interface_name.startswith("irb"):
+                        continue
+                    
+                    # Add IP information with correct format
+                    if ip_info:
+                        device_lines.append(f"  {interface_name}: {ip_info}")
+                
+                if len(device_lines) > 1:  # Only add device if it has IP info
+                    ip_lines.extend(device_lines)
+                    ip_lines.append("")  # Empty line between devices
+            
+            # Remove trailing empty line if exists
+            if ip_lines and ip_lines[-1] == "":
+                ip_lines.pop()
+            
+            # Create single text box for all IP information
+            if len(ip_lines) > 2:  # Only create if there's actual IP info (title + empty line + content)
+                # Calculate text box size based on content with precise auto-scaling
+                max_line_length = max(len(line) for line in ip_lines)
+                # More precise width calculation: 5.5 pixels per character + 15px padding
+                text_width = max(180, int(max_line_length * 5.5 + 15))
+                # More precise height calculation: 14px per line + 25px padding
+                text_height = max(70, len(ip_lines) * 14 + 25)
+                
+                element_id = str(self.next_id)
+                self.next_id += 1
+                
+                # Create content with HTML line breaks for DrawIO
+                ip_text = "<br>".join(ip_lines)
+                escaped_ip_text = self._escape_xml(ip_text)
+                
+                # Create element with light blue background for IP info
+                element = f'''<mxCell id="{element_id}" value="{escaped_ip_text}" style="text;html=1;align=left;verticalAlign=top;whiteSpace=wrap;rounded=0;fontSize=10;fontColor=#000000;fillColor=#e3f2fd;strokeColor=#000000;" vertex="1" parent="1">
+                    <mxGeometry x="50" y="0" width="{text_width}" height="{text_height}" as="geometry"/>
+                  </mxCell>'''
+                
+                # Check for collisions before adding
+                bbox = {'x': 50, 'y': 0, 'w': text_width, 'h': text_height}
+                if not spatial_index.overlaps(bbox):
+                    ip_elements.append(element)
+                    spatial_index.insert(bbox, element_id)
+                
+                diagram_bottom_y += text_height + 15  # Move down for next element
         
         return ip_elements
     

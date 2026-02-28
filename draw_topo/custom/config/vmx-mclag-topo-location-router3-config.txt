@@ -1,0 +1,198 @@
+## Last commit: 2025-09-02 19:41:24 CST by root
+version 23.4R2-S4.11;
+groups {
+    re0 {
+        system {
+            host-name vmx3_re;
+            backup-router 10.207.255.254;
+        }
+        interfaces {
+            fxp0 {
+                unit 0 {
+                    family inet {
+                        address 10.207.210.150/18;
+                    }
+                }
+            }
+        }
+    }
+    re1 {
+        system {
+            host-name vmx3_re1;
+            backup-router 10.207.255.254;
+        }
+        interfaces {
+            fxp0 {
+                unit 0 {
+                    family inet {
+                        address 10.207.210.151/18;
+                    }
+                }
+            }
+        }
+    }
+    global {
+        system {
+            root-authentication {
+                encrypted-password "$1$ZUlES4dp$OUwWo1g7cLoV/aMWpHUnC/"; ## SECRET-DATA
+            }
+            login {
+                class wheel {
+                    permissions snmp;
+                }
+                user regress {
+                    uid 928;
+                    class superuser;
+                    shell csh;
+                    authentication {
+                        encrypted-password "$1$kPU..$w.4FGRAGanJ8U4Yq6sbj7."; ## SECRET-DATA
+                    }
+                }
+                user remote {
+                    uid 2000;
+                    class super-user;
+                }
+                user labroot {
+                    uid 2001;
+                    class super-user;
+                    authentication {
+                        encrypted-password "$1$1M37h3gJ$FAb2dB9J1rVnuB2zUBu.g0"; ## SECRET-DATA
+                    }
+                }
+            }
+            services {
+                netconf {
+                    ssh;
+                }
+                ssh {
+                    root-login allow;
+                }
+                finger;
+                ftp;
+                rlogin;
+                telnet;
+                xnm-clear-text;
+            }
+            domain-name englab.juniper.net;
+            domain-search [ englab.juniper.net juniper.net jnpr.net ];
+            time-zone Asia/Shanghai;
+            debugger-on-break;
+            dump-on-panic;
+            authentication-order [ password radius tacplus ];
+            name-server {
+                10.49.32.95;
+                10.49.32.97;
+            }
+            radius-server {
+                10.48.144.16 secret "$9$iHfz9Cu0BRQznCApIRSreWxNVw2GjkKM4JGimP"; ## SECRET-DATA
+                10.48.144.17 secret "$9$iHfz9Cu0BRQznCApIRSreWxNVw2GjkKM4JGimP"; ## SECRET-DATA
+            }
+            syslog {
+                file messages {
+                    any notice;
+                }
+            }
+            ntp {
+                server 172.29.131.60;
+                server 172.29.135.60;
+            }
+        }
+        routing-options {
+            static {
+                route 172.16.0.0/12 {
+                    next-hop 10.207.255.254;
+                    retain;
+                    no-readvertise;
+                }
+                route 10.0.0.0/8 {
+                    next-hop 10.207.255.254;
+                    retain;
+                    no-readvertise;
+                }
+            }
+        }
+    }
+}
+apply-groups [ global re0 re1 ];
+system {
+    host-name vmx-mclag-topo-location-router3;
+    ports {
+        console log-out-on-disconnect;
+    }
+}
+chassis {
+    aggregated-devices {
+        ethernet {
+            device-count 1;
+        }
+    }
+    network-services enhanced-ip;
+}
+interfaces {
+    xe-0/0/1 {
+        gigether-options {
+            802.3ad ae3;
+        }
+    }
+    xe-0/0/2 {
+        gigether-options {
+            802.3ad ae3;
+        }
+    }
+    ae3 {
+        flexible-vlan-tagging;
+        encapsulation flexible-ethernet-services;
+        aggregated-ether-options {
+            lacp {
+                active;
+            }
+        }
+        unit 123 {
+            vlan-id 123;
+            family inet {
+                address 10.0.123.3/24;
+            }
+        }
+        unit 1001 {
+            vlan-id 1001;
+            family inet {
+                address 10.10.1.1/24;
+            }
+        }
+        unit 1002 {
+            vlan-id 1002;
+            family inet {
+                address 10.10.2.1/24;
+            }
+        }
+    }
+}
+policy-options {
+    policy-statement lb {
+        term 1 {
+            then {
+                load-balance per-flow;
+            }
+        }
+    }
+}
+routing-options {
+    static {
+        route 0.0.0.0/0 {
+            qualified-next-hop 10.0.123.1;
+            qualified-next-hop 10.0.123.2;
+        }
+    }
+    forwarding-table {
+        export lb;
+    }
+}
+protocols {
+    lldp {
+        port-id-subtype interface-name;
+        interface all;
+        interface fxp0 {
+            disable;
+        }
+    }
+}

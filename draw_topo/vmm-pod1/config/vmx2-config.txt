@@ -1,0 +1,21 @@
+set system ports console log-out-on-disconnect
+set chassis aggregated-devices ethernet device-count 10
+set chassis network-services enhanced-ip
+set interfaces xe-0/0/0 unit 0 family inet address 10.0.14.1/30
+set interfaces xe-0/0/1 gigether-options 802.3ad ae0
+set interfaces xe-0/0/2 gigether-options 802.3ad ae0
+set interfaces xe-0/0/3 unit 0 family inet address 10.0.15.2/30
+set interfaces xe-0/0/4 unit 0 family inet address 10.0.12.2/30
+set interfaces ae0 aggregated-ether-options lacp active
+set interfaces ae0 unit 0 family inet address 10.0.34.2/30
+set interfaces lo0 unit 0 family inet address 4.4.4.4/32
+set policy-options policy-statement lb term 1 then load-balance per-flow
+set routing-options router-id 4.4.4.4
+set routing-options autonomous-system 65034
+set routing-options forwarding-table export lb
+set protocols bgp group ebgp multipath
+set protocols bgp group ebgp neighbor 10.0.12.1 peer-as 65012
+set protocols bgp group ebgp neighbor 10.0.15.1 peer-as 65012
+set protocols bgp group ebgp neighbor 10.0.14.2 peer-as 65001
+set protocols lldp interface all
+set protocols lldp interface fxp0 disable

@@ -23,8 +23,8 @@ USAGE:
     python j2draw.py [options]
 
 NOTE:
-        Default output format is now .drawio (diagrams.net format) instead of .png
-        for better network topology diagram editing and sharing capabilities.
+    Default output format is now .drawio (diagrams.net format) instead of .png
+    for better network topology diagram editing and sharing capabilities.
 """
     
     parser = argparse.ArgumentParser(
@@ -45,13 +45,6 @@ NOTE:
         "-4", "--ipv4",
         action="store_true",
         help="Display IPv4 information including interface IPs and connection details"
-    )
-    
-    # Layer 2 option
-    parser.add_argument(
-        "-l2", "--layer2",
-        action="store_true",
-        help="Display Layer 2 information including interface modes (trunk/access) and VLAN details"
     )
     
     return parser
@@ -250,7 +243,6 @@ class DeviceInfo:
         self.neighbors = []  # List of (local_port, remote_device, remote_port)
         self.interface_ae = {}  # physical_interface: ae_interface mapping
         self.trunk_interfaces = {}  # trunk_interface: vlan_members_list
-        self.access_interfaces = {}  # access_interface: vlan_name
         self.vlan_irb_mapping = {}  # vlan_name: (irb_unit, vlan_id)
         self.position: Tuple[int, int] = (0, 0)  # x, y coordinates for device placement
     
@@ -265,73 +257,6 @@ class DeviceInfo:
             return clean_ip_info.split(":")[-1]
         else:
             return clean_ip_info
-    
-    def get_layer2_info(self, interface_name: str) -> str:
-        """Get Layer 2 information for an interface including mode and VLAN details"""
-        # Check if this is a trunk interface
-        if interface_name in self.trunk_interfaces:
-            vlan_members = self.trunk_interfaces[interface_name]
-            if vlan_members == "all":
-                return f"{interface_name} trunk all"
-            else:
-                # Format VLAN information as "vlan_name<vlan_id>"
-                vlan_info_list = []
-                for vlan_ref in vlan_members:
-                    # Check if this is a VLAN ID or VLAN name
-                    if str(vlan_ref).isdigit():
-                        # It's a VLAN ID, try to find the corresponding name
-                        vlan_name = None
-                        for name, (irb_unit, vlan_id) in self.vlan_irb_mapping.items():
-                            if str(vlan_id) == str(vlan_ref):
-                                vlan_name = name
-                                break
-                        if vlan_name:
-                            vlan_info_list.append(f"{vlan_name}<{vlan_ref}>")
-                        else:
-                            # If no name found, just use the ID
-                            vlan_info_list.append(f"vlan{vlan_ref}<{vlan_ref}>")
-                    else:
-                        # It's a VLAN name, try to find the corresponding ID
-                        vlan_info = self.vlan_irb_mapping.get(vlan_ref, (None, None))
-                        irb_unit, vlan_id = vlan_info
-                        if vlan_id:
-                            vlan_info_list.append(f"{vlan_ref}<{vlan_id}>")
-                        else:
-                            # If no ID found, just use the name
-                            vlan_info_list.append(f"{vlan_ref}")
-                
-                # Sort the VLAN info list for consistent output
-                vlan_info_list.sort()
-                return f"{interface_name} trunk [ {' '.join(vlan_info_list)} ]"
-        
-        # Check if this is an access interface
-        if interface_name in self.access_interfaces:
-            vlan_ref = self.access_interfaces[interface_name]
-            # Format VLAN information as "vlan_name<vlan_id>"
-            if str(vlan_ref).isdigit():
-                # It's a VLAN ID, try to find the corresponding name
-                vlan_name = None
-                for name, (irb_unit, vlan_id) in self.vlan_irb_mapping.items():
-                    if str(vlan_id) == str(vlan_ref):
-                        vlan_name = name
-                        break
-                if vlan_name:
-                    return f"{interface_name} access {vlan_name}<{vlan_ref}>"
-                else:
-                    # If no name found, just use the ID
-                    return f"{interface_name} access vlan{vlan_ref}<{vlan_ref}>"
-            else:
-                # It's a VLAN name, try to find the corresponding ID
-                vlan_info = self.vlan_irb_mapping.get(vlan_ref, (None, None))
-                irb_unit, vlan_id = vlan_info
-                if vlan_id:
-                    return f"{interface_name} access {vlan_ref}<{vlan_id}>"
-                else:
-                    # If no ID found, just use the name
-                    return f"{interface_name} access {vlan_ref}"
-        
-        # If no specific Layer 2 information found, return a basic format
-        return f"{interface_name} (no Layer 2 info)"
 
 
 class TopologyBuilder:
@@ -418,43 +343,21 @@ class TopologyBuilder:
                 for vlan_name, vlan_id, irb_unit in vlan_matches:
                     vlan_irb_mapping[irb_unit] = (vlan_name, vlan_id)
                     device.vlan_irb_mapping[vlan_name] = (irb_unit, vlan_id)
-                # Also find VLAN definitions without l3-interface references
-                vlan_matches_simple = re.findall(r'(\w+)\s*{[^}]*vlan-id\s+(\d+);', vlan_content, re.DOTALL)
-                for vlan_name, vlan_id in vlan_matches_simple:
-                    if vlan_name not in device.vlan_irb_mapping:
-                        device.vlan_irb_mapping[vlan_name] = (None, vlan_id)
             
-            print(f"Device {device.name} VLAN mapping: {device.vlan_irb_mapping}")
-            
-            # Extract trunk interface information directly from configuration
-            # Look for trunk interfaces with vlan members in hierarchical format
-            lines = content.split("\n")
-            i = 0
-            while i < len(lines):
-                line = lines[i].strip()
-                # Look for interfaces (ae, ge, xe, etc.)
-                interface_match = re.match(r'^(ae\d+|[gx]e-[\w\-/]+)\s*{$', line)
-                if interface_match:
-                    interface_name = interface_match.group(1)
-                    # Look for the interface-mode trunk and members pattern
-                    j = i
-                    found_trunk = False
-                    members_str = ""
-                    # Look within the next 30 lines for the pattern
-                    while j < min(i + 30, len(lines)):
-                        inner_line = lines[j].strip()
-                        if "interface-mode trunk;" in inner_line:
-                            found_trunk = True
-                        if "members" in inner_line and (";" in inner_line or "[" in inner_line):
-                            # Extract members
-                            members_match = re.search(r'members\s+([^;\n]+);?', inner_line)
-                            if members_match:
-                                members_str = members_match.group(1)
-                                break
-                        j += 1
-                    
-                    if found_trunk and members_str:
-                        members_str = members_str.strip()
+            # Extract trunk interface information
+            # Look for trunk interfaces with vlan members
+            # Try a simpler pattern to match the trunk interfaces in hierarchical format
+            # First, find all interface blocks
+            interface_blocks = self._extract_interface_blocks_from_section(content)
+            print(f"Found {len(interface_blocks)} interface blocks for device {device.name}")
+            for interface_name, interface_block in interface_blocks:
+                # Look for trunk mode and vlan members within the interface block
+                trunk_match = re.search(r'interface-mode\s+trunk;', interface_block)
+                if trunk_match:
+                    # Look for vlan members
+                    members_match = re.search(r'members\s+([^;]+);', interface_block)
+                    if members_match:
+                        members_str = members_match.group(1).strip()
                         if members_str == "all":
                             device.trunk_interfaces[interface_name] = "all"
                         elif members_str.startswith("[") and members_str.endswith("]"):
@@ -464,46 +367,11 @@ class TopologyBuilder:
                         else:
                             # Single VLAN
                             device.trunk_interfaces[interface_name] = [members_str]
-                i += 1
-            
-            # Extract access interface information directly from configuration
-            # Look for access interfaces with vlan members in hierarchical format
-            lines = content.split("\n")
-            i = 0
-            while i < len(lines):
-                line = lines[i].strip()
-                # Look for interfaces (ae, ge, xe, etc.)
-                interface_match = re.match(r'^(ae\d+|[gx]e-[\w\-/]+)\s*{$', line)
-                if interface_match:
-                    interface_name = interface_match.group(1)
-                    # Look for the interface-mode access and members pattern
-                    j = i
-                    found_access = False
-                    members_str = ""
-                    # Look within the next 30 lines for the pattern
-                    while j < min(i + 30, len(lines)):
-                        inner_line = lines[j].strip()
-                        if "interface-mode access;" in inner_line:
-                            found_access = True
-                        if "members" in inner_line and (";" in inner_line or "[" in inner_line):
-                            # Extract members
-                            members_match = re.search(r'members\s+([^;\n]+);?', inner_line)
-                            if members_match:
-                                members_str = members_match.group(1)
-                                break
-                        j += 1
-                    
-                    if found_access and members_str:
-                        members_str = members_str.strip()
-                        device.access_interfaces[interface_name] = members_str
-                i += 1
-            
             # Also look for set format trunk interface mappings
-            # Find all trunk interfaces first
             set_trunk_matches = re.findall(r'set interfaces (\S+) unit \d+ family ethernet-switching interface-mode trunk', content)
             for interface_name in set_trunk_matches:
                 # Look for corresponding vlan members
-                vlan_members_match = re.search(rf'set interfaces {re.escape(interface_name)} unit \d+ family ethernet-switching vlan members ([^\n;]+)', content)
+                vlan_members_match = re.search(rf'set interfaces {interface_name} unit \d+ family ethernet-switching vlan members (.+)', content)
                 if vlan_members_match:
                     members_str = vlan_members_match.group(1).strip()
                     if members_str == "all":
@@ -515,18 +383,9 @@ class TopologyBuilder:
                     else:
                         # Single VLAN
                         device.trunk_interfaces[interface_name] = [members_str]
-            
-            # Also look for set format access interface mappings
-            set_access_matches = re.findall(r'set interfaces (\S+) unit \d+ family ethernet-switching interface-mode access', content)
-            for interface_name in set_access_matches:
-                # Look for corresponding vlan members
-                vlan_members_match = re.search(rf'set interfaces {re.escape(interface_name)} unit \d+ family ethernet-switching vlan members ([^\n;]+)', content)
-                if vlan_members_match:
-                    members_str = vlan_members_match.group(1).strip()
-                    device.access_interfaces[interface_name] = members_str
+                    print(f"Parsed set trunk interface: {interface_name} -> {device.trunk_interfaces[interface_name]}")
             
             print(f"Device {device.name} trunk interfaces: {device.trunk_interfaces}")
-            print(f"Device {device.name} access interfaces: {device.access_interfaces}")
             
             # Extract interface information
             # Handle both set format and hierarchical format
@@ -1711,98 +1570,6 @@ class DrawIOGenerator:
         
         return ip_elements
     
-    def _create_layer2_info_elements(self, topology: TopologyBuilder) -> list:
-        """Create Layer 2 information elements for DrawIO output when Layer 2 option is enabled"""
-        layer2_elements = []
-        
-        # Calculate the actual diagram height to position Layer 2 info below all devices and connections
-        # First, find the bottom of the existing elements (IP info if they exist)
-        max_y = 0
-        for device in topology.devices.values():
-            x, y = device.position
-            # Device size is 80x60, add some padding
-            device_bottom = y + 60 + 20
-            max_y = max(max_y, device_bottom)
-        
-        # Check if IP info elements exist and adjust position accordingly
-        diagram_bottom_y = max(600, max_y + 50)
-        
-        # Create a spatial index to avoid overlapping elements
-        spatial_index = SpatialIndex(2000, 2000, 100)
-        
-        # Collect all Layer 2 information for devices that have Layer 2 info
-        layer2_lines = ["Layer 2 Interface Info", ""]  # Add empty line after title
-        
-        # Sort devices by name for consistent output
-        sorted_devices = sorted(topology.devices.items(), key=lambda x: x[0])
-        
-        # Track if we have any Layer 2 information to display
-        has_layer2_info = False
-        
-        for device_name, device in sorted_devices:
-            # Only process devices that have Layer 2 information (switches with trunk or access interfaces)
-            if device.device_type == 'switch' and (device.trunk_interfaces or device.access_interfaces):
-                device_lines = [device_name]
-                
-                # Collect all Layer 2 interfaces (both trunk and access)
-                layer2_interfaces = []
-                
-                # Collect trunk interfaces
-                for interface_name in device.trunk_interfaces:
-                    layer2_info = device.get_layer2_info(interface_name)
-                    layer2_interfaces.append((interface_name, layer2_info))
-                
-                # Collect access interfaces
-                for interface_name in device.access_interfaces:
-                    layer2_info = device.get_layer2_info(interface_name)
-                    layer2_interfaces.append((interface_name, layer2_info))
-                
-                # Sort interfaces by name for consistent output
-                layer2_interfaces.sort(key=lambda x: x[0])
-                
-                # Add Layer 2 information
-                for interface_name, layer2_info in layer2_interfaces:
-                    device_lines.append(f"  {layer2_info}")
-                
-                # Only add device if it has Layer 2 info
-                if len(device_lines) > 1:  # Device name + at least one interface
-                    layer2_lines.extend(device_lines)
-                    layer2_lines.append("")  # Empty line between devices
-                    has_layer2_info = True
-        
-        # Remove trailing empty line if exists
-        if layer2_lines and layer2_lines[-1] == "":
-            layer2_lines.pop()
-        
-        # Create single text box for all Layer 2 information (only if there is info to display)
-        if has_layer2_info and len(layer2_lines) > 2:  # Only create if there's actual Layer 2 info (title + empty line + content)
-            # Calculate text box size based on content with precise auto-scaling
-            max_line_length = max(len(line) for line in layer2_lines)
-            # More precise width calculation: 5.5 pixels per character + 15px padding (reduced from 30)
-            text_width = max(180, int(max_line_length * 5.5 + 15))
-            # More precise height calculation: 14px per line + 25px padding (reduced from 40)
-            text_height = max(70, len(layer2_lines) * 14 + 25)
-            
-            element_id = str(self.next_id)
-            self.next_id += 1
-            
-            # Create content with HTML line breaks for DrawIO
-            layer2_text = "<br>".join(layer2_lines)
-            escaped_layer2_text = self._escape_xml(layer2_text)
-            
-            # Create element with light green background for Layer 2 info
-            element = f'''<mxCell id="{element_id}" value="{escaped_layer2_text}" style="text;html=1;align=left;verticalAlign=top;whiteSpace=wrap;rounded=0;fontSize=10;fontColor=#000000;fillColor=#e8f5e8;strokeColor=#000000;" vertex="1" parent="1">
-                <mxGeometry x="50" y="{diagram_bottom_y}" width="{text_width}" height="{text_height}" as="geometry"/>
-              </mxCell>'''
-            
-            # Check for collisions before adding
-            bbox = {'x': 50, 'y': diagram_bottom_y, 'w': text_width, 'h': text_height}
-            if not spatial_index.overlaps(bbox):
-                layer2_elements.append(element)
-                spatial_index.insert(bbox, element_id)
-        
-        return layer2_elements
-    
     def _escape_xml_for_html(self, text: str) -> str:
         """Escape special characters for XML attributes while preserving HTML tags"""
         return self._escape_xml(text).replace('&lt;br&gt;', '<br>')
@@ -1864,11 +1631,6 @@ class DrawIOGenerator:
         if self.args and self.args.ipv4:
             ip_elements = self._create_ip_info_elements(topology)
         
-        # Generate Layer 2 information elements if Layer 2 option is enabled
-        layer2_elements = []
-        if self.args and self.args.layer2:
-            layer2_elements = self._create_layer2_info_elements(topology)
-        
         # Complete XML structure with proper formatting
         xml_content = f'''<?xml version="1.0" encoding="UTF-8"?>
 <mxfile host="Electron" modified="2024-01-01T00:00:00.000Z" agent="5.0" version="22.1.16" etag="topology" type="device">
@@ -1880,7 +1642,6 @@ class DrawIOGenerator:
         {''.join(shapes)}
         {''.join(lines)}
         {''.join(ip_elements)}
-        {''.join(layer2_elements)}
       </root>
     </mxGraphModel>
   </diagram>
@@ -2186,6 +1947,7 @@ def main():
 
 
 
+
         
         # Print additional interface information if IPv4 option is enabled
         if args.ipv4:
@@ -2229,34 +1991,6 @@ def main():
                                             print(f"    {ip_line}")
                                 else:
                                     print(f"  {interface_name}: {ip_part}")
-                print()  # Empty line between devices
-        
-        # Print Layer 2 information if layer2 option is enabled
-        if args.layer2:
-            print("\n\nLayer 2 Interface Info:")
-            for device_name, device in sorted_devices:
-                print(f"{device_name}:")
-                # Print Layer 2 information for switch interfaces
-                if device.device_type == 'switch':
-                    # Collect all Layer 2 interfaces (both trunk and access)
-                    layer2_interfaces = []
-                    
-                    # Collect trunk interfaces
-                    for interface_name in device.trunk_interfaces:
-                        layer2_info = device.get_layer2_info(interface_name)
-                        layer2_interfaces.append((interface_name, layer2_info))
-                    
-                    # Collect access interfaces
-                    for interface_name in device.access_interfaces:
-                        layer2_info = device.get_layer2_info(interface_name)
-                        layer2_interfaces.append((interface_name, layer2_info))
-                    
-                    # Sort interfaces by name for consistent output
-                    layer2_interfaces.sort(key=lambda x: x[0])
-                    
-                    # Print Layer 2 information
-                    for interface_name, layer2_info in layer2_interfaces:
-                        print(f"  {layer2_info}")
                 print()  # Empty line between devices
             
     except Exception as e:

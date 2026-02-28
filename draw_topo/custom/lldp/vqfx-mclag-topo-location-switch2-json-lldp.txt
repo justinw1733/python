@@ -1,0 +1,233 @@
+{
+    "lldp-neighbors-information" : [
+    {
+        "attributes" : {"junos:style" : "brief"}, 
+        "lldp-neighbor-information" : [
+        {
+            "lldp-local-port-id" : [
+            {
+                "data" : "xe-0/0/3"
+            }
+            ], 
+            "lldp-local-parent-interface-name" : [
+            {
+                "data" : "ae1"
+            }
+            ], 
+            "lldp-remote-chassis-id-subtype" : [
+            {
+                "data" : "Mac address"
+            }
+            ], 
+            "lldp-remote-chassis-id" : [
+            {
+                "data" : "02:05:86:71:5f:00"
+            }
+            ], 
+            "lldp-remote-port-description" : [
+            {
+                "data" : "xe-0/0/2"
+            }
+            ], 
+            "lldp-remote-system-name" : [
+            {
+                "data" : "vqfx-mclag-topo-location-switch3.englab.juniper.net"
+            }
+            ]
+        }, 
+        {
+            "lldp-local-port-id" : [
+            {
+                "data" : "xe-0/0/1"
+            }
+            ], 
+            "lldp-local-parent-interface-name" : [
+            {
+                "data" : "ae0"
+            }
+            ], 
+            "lldp-remote-chassis-id-subtype" : [
+            {
+                "data" : "Mac address"
+            }
+            ], 
+            "lldp-remote-chassis-id" : [
+            {
+                "data" : "02:05:86:71:a6:00"
+            }
+            ], 
+            "lldp-remote-port-description" : [
+            {
+                "data" : "xe-0/0/1"
+            }
+            ], 
+            "lldp-remote-system-name" : [
+            {
+                "data" : "vqfx-mclag-topo-location-switch1.englab.juniper.net"
+            }
+            ]
+        }, 
+        {
+            "lldp-local-port-id" : [
+            {
+                "data" : "xe-0/0/2"
+            }
+            ], 
+            "lldp-local-parent-interface-name" : [
+            {
+                "data" : "ae0"
+            }
+            ], 
+            "lldp-remote-chassis-id-subtype" : [
+            {
+                "data" : "Mac address"
+            }
+            ], 
+            "lldp-remote-chassis-id" : [
+            {
+                "data" : "02:05:86:71:a6:00"
+            }
+            ], 
+            "lldp-remote-port-description" : [
+            {
+                "data" : "xe-0/0/2"
+            }
+            ], 
+            "lldp-remote-system-name" : [
+            {
+                "data" : "vqfx-mclag-topo-location-switch1.englab.juniper.net"
+            }
+            ]
+        }, 
+        {
+            "lldp-local-port-id" : [
+            {
+                "data" : "xe-0/0/4"
+            }
+            ], 
+            "lldp-local-parent-interface-name" : [
+            {
+                "data" : "ae2"
+            }
+            ], 
+            "lldp-remote-chassis-id-subtype" : [
+            {
+                "data" : "Mac address"
+            }
+            ], 
+            "lldp-remote-chassis-id" : [
+            {
+                "data" : "02:05:86:71:da:00"
+            }
+            ], 
+            "lldp-remote-port-description" : [
+            {
+                "data" : "xe-0/0/2"
+            }
+            ], 
+            "lldp-remote-system-name" : [
+            {
+                "data" : "vqfx-mclag-topo-location-switch4.englab.juniper.net"
+            }
+            ]
+        }, 
+        {
+            "lldp-local-port-id" : [
+            {
+                "data" : "xe-0/0/6"
+            }
+            ], 
+            "lldp-local-parent-interface-name" : [
+            {
+                "data" : "-"
+            }
+            ], 
+            "lldp-remote-chassis-id-subtype" : [
+            {
+                "data" : "Mac address"
+            }
+            ], 
+            "lldp-remote-chassis-id" : [
+            {
+                "data" : "2c:6b:f5:40:4b:c0"
+            }
+            ], 
+            "lldp-remote-port-description" : [
+            {
+                "data" : "xe-0/0/4"
+            }
+            ], 
+            "lldp-remote-system-name" : [
+            {
+                "data" : "vmx-mclag-topo-location-router2.englab.juniper.net"
+            }
+            ]
+        }, 
+        {
+            "lldp-local-port-id" : [
+            {
+                "data" : "xe-0/0/7"
+            }
+            ], 
+            "lldp-local-parent-interface-name" : [
+            {
+                "data" : "-"
+            }
+            ], 
+            "lldp-remote-chassis-id-subtype" : [
+            {
+                "data" : "Mac address"
+            }
+            ], 
+            "lldp-remote-chassis-id" : [
+            {
+                "data" : "2c:6b:f5:a6:af:c0"
+            }
+            ], 
+            "lldp-remote-port-description" : [
+            {
+                "data" : "xe-0/0/4"
+            }
+            ], 
+            "lldp-remote-system-name" : [
+            {
+                "data" : "vmx-mclag-topo-location-router1.englab.juniper.net"
+            }
+            ]
+        }, 
+        {
+            "lldp-local-port-id" : [
+            {
+                "data" : "xe-0/0/5"
+            }
+            ], 
+            "lldp-local-parent-interface-name" : [
+            {
+                "data" : "ae3"
+            }
+            ], 
+            "lldp-remote-chassis-id-subtype" : [
+            {
+                "data" : "Mac address"
+            }
+            ], 
+            "lldp-remote-chassis-id" : [
+            {
+                "data" : "2c:6b:f5:e8:69:c0"
+            }
+            ], 
+            "lldp-remote-port-description" : [
+            {
+                "data" : "xe-0/0/2"
+            }
+            ], 
+            "lldp-remote-system-name" : [
+            {
+                "data" : "vmx-mclag-topo-location-router3.englab.juniper.net"
+            }
+            ]
+        }
+        ]
+    }
+    ]
+}

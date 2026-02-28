@@ -1,0 +1,73 @@
+{
+    "lldp-neighbors-information" : [
+    {
+        "attributes" : {"junos:style" : "brief"}, 
+        "lldp-neighbor-information" : [
+        {
+            "lldp-local-port-id" : [
+            {
+                "data" : "xe-0/0/2"
+            }
+            ], 
+            "lldp-local-parent-interface-name" : [
+            {
+                "data" : "ae2"
+            }
+            ], 
+            "lldp-remote-chassis-id-subtype" : [
+            {
+                "data" : "Mac address"
+            }
+            ], 
+            "lldp-remote-chassis-id" : [
+            {
+                "data" : "02:05:86:71:2d:00"
+            }
+            ], 
+            "lldp-remote-port-description" : [
+            {
+                "data" : "xe-0/0/4"
+            }
+            ], 
+            "lldp-remote-system-name" : [
+            {
+                "data" : "vqfx-mclag-topo-location-switch2.englab.juniper.net"
+            }
+            ]
+        }, 
+        {
+            "lldp-local-port-id" : [
+            {
+                "data" : "xe-0/0/1"
+            }
+            ], 
+            "lldp-local-parent-interface-name" : [
+            {
+                "data" : "ae2"
+            }
+            ], 
+            "lldp-remote-chassis-id-subtype" : [
+            {
+                "data" : "Mac address"
+            }
+            ], 
+            "lldp-remote-chassis-id" : [
+            {
+                "data" : "02:05:86:71:a6:00"
+            }
+            ], 
+            "lldp-remote-port-description" : [
+            {
+                "data" : "xe-0/0/4"
+            }
+            ], 
+            "lldp-remote-system-name" : [
+            {
+                "data" : "vqfx-mclag-topo-location-switch1.englab.juniper.net"
+            }
+            ]
+        }
+        ]
+    }
+    ]
+}

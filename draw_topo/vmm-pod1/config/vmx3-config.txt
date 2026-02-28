@@ -1,0 +1,20 @@
+set system ports console log-out-on-disconnect
+set chassis aggregated-devices ethernet device-count 1
+set chassis network-services enhanced-ip
+set interfaces xe-0/0/1 gigether-options 802.3ad ae3
+set interfaces xe-0/0/2 gigether-options 802.3ad ae3
+set interfaces ae3 flexible-vlan-tagging
+set interfaces ae3 encapsulation flexible-ethernet-services
+set interfaces ae3 aggregated-ether-options lacp active
+set interfaces ae3 unit 123 vlan-id 123
+set interfaces ae3 unit 123 family inet address 10.0.123.3/24
+set interfaces ae3 unit 1001 vlan-id 1001
+set interfaces ae3 unit 1001 family inet address 10.10.1.1/24
+set interfaces ae3 unit 1002 vlan-id 1002
+set interfaces ae3 unit 1002 family inet address 10.10.2.1/24
+set policy-options policy-statement lb term 1 then load-balance per-flow
+set routing-options static route 0.0.0.0/0 qualified-next-hop 10.0.123.1
+set routing-options static route 0.0.0.0/0 qualified-next-hop 10.0.123.2
+set routing-options forwarding-table export lb
+set protocols lldp interface all
+set protocols lldp interface fxp0 disable

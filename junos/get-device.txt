@@ -1,0 +1,29 @@
+
+
+和获取config类似，加入获取varlog内容，./get-device-info.py varlog
+命令如下：
+file archive compress source /var/log/* destination /var/tmp/主机名-varlog
+--time和--date和config的功能一样，在压缩文件名后加”/var/tmp/主机名-varlog“
+默认保存的目录是~/tesla-op/varlog加日期子目录
+
+和获取config类似，加入获取lldp内容，./get-device-info.py lldp
+命令如下：
+show lldp neighbors 
+--json(-j)的命令为show lldp neighbors | display json
+--detial(-dtl)的命令为show lldp neighbors detial 
+--time和--date和config的功能一样
+默认保存的目录是~/tesla-op/lldp加日期子目录
+
+
+和获取config类似，加入获取mac-table内容，./get-device-info.py mac-table
+需要先判断设备是路由器还是交互机，用下面命令得到设备的mode
+> show version | grep mode 
+如果mode里还有mx或者ptx，那么就是路由器，如果mode里还有qfx或者ex，那么就是交换机
+路由器的命令：
+show bridge mac-table 
+交互机命令如下：
+show ethernet-switching table
+--time和--date和config的功能一样
+默认保存的目录是~/tesla-op/mac-table加日期子目录
+
+

@@ -1,0 +1,16 @@
+set system ports console log-out-on-disconnect
+set chassis aggregated-devices ethernet device-count 2
+set interfaces xe-0/0/0 unit 0 family ethernet-switching interface-mode access
+set interfaces xe-0/0/0 unit 0 family ethernet-switching vlan members v1001
+set interfaces xe-0/0/1 ether-options 802.3ad ae2
+set interfaces xe-0/0/2 ether-options 802.3ad ae2
+set interfaces xe-0/0/3 unit 0 family ethernet-switching interface-mode access
+set interfaces xe-0/0/3 unit 0 family ethernet-switching vlan members v1002
+set interfaces ae2 aggregated-ether-options lacp active
+set interfaces ae2 unit 0 family ethernet-switching interface-mode trunk
+set interfaces ae2 unit 0 family ethernet-switching vlan members v1001
+set interfaces ae2 unit 0 family ethernet-switching vlan members v1002
+set protocols lldp interface all
+set protocols lldp interface em0 disable
+set vlans v1001 vlan-id 1001
+set vlans v1002 vlan-id 1002

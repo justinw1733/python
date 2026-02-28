@@ -1,0 +1,109 @@
+1G/10G/40G/100G/400G 用黑-红-蓝-黄-绿 来表示不同速率的连接
+
+去掉目前的所有的Configuration Options。
+
+1.运行程序后自动查找当前目录下的子目录，并将所有子目录加序号打印出来，提示选择一个目录创建拓扑，默认选择custom目录，最后一个提示选择创建一个新的目录。 
+2.提示需要将创建topo的设备的配置文件放在对应目录下的config文件夹里，将所有设备的”show lldp neighbors detail | display json“结果放入lldp文件夹里。 
+如果在选择的目录下的子目录下没有发现对应的文件，报错提示没有找到文件后退出。
+如果找到文件，创建网络topo，文件名为”对应目录名-topo“
+3.如果选择最后一个提示选择创建一个新的目录，那么提示输入目录名，输入后在当前目录下穿件这个新目录，并在新目录下穿件config和lldp子目录。
+并提示要将创建topo的设备的配置文件放在对应目录下的config文件夹里，将所有设备的”show lldp neighbors detail | display json“结果放入lldp文件夹里之后退出。                   
+                                                                    
+
+400G interfaces (et- with /3 or /4, cd-, 400g) → Green (#00cc00)
+40G/100G interfaces (et-0/0, et-0/1, et-0/2, ce-, 100g) → Yellow (#ffcc00)
+10G interfaces (xe-) → Blue (#0066cc) 
+1G interfaces (ge-, fe-, gi, fa, 1g) → Black (#000000)
+
+
+如果设备有router-id将router-id放在主机名下方
+                      
+
+添加options  
+--ipv4(-4) 如果接口有ip将ip放在接口名下方，如果接口属于某个ae，同时在下方打印ae接口：IP地址
+--layer2（-l2) 打印接口2层模式，接口如果是truck，在接口下打印tr:所有的vlan信息，如果接口是access，在接口下答应acc:vlan信息，如果属于某个ae，在前面加上ae信息。
+access接口对端如果没有设备，设备下方打印接口信息并连接一条短线 
+
+
+
+水平分离且 Y 有重叠 → 选择 水平最短直线（左设备右边缘 ↔ 右设备左边缘），在两设备的Y 重叠区均匀取点，形成多条平行且不重叠的直线。
+垂直分离且 X 有重叠 → 选择 垂直最短直线（上设备下边缘 ↔ 下设备上边缘），在X 重叠区均匀取点，保证多连线平行不重叠。
+对角分离（X/Y 都无重叠） → 采用 最近角对角（例如右下角 ↔ 左上角）连接，多条连线按边缘等间距偏移，生成一组斜向平行且不重叠的直线。
+
+加options --ipv4（-4），把IP相关链路以及接口的IP信息打印出来，放在图纸的空白处,示例如下： 
+
+关于Connection的：
+1.单根link的：
+vmx-mclag-topo-location-router1:xe-0/0/4 <-> vqfx-mclag-topo-location-switch2:xe-0/0/7
+                    xe-0/0/4.0:10.0.16.2/30 <-> xe-0/0/7.0:10.0.16.1/30
+
+2.ae的：
+vmx-mclag-topo-location-router1:xe-0/0/1 <-> vmx-mclag-topo-location-router2:xe-0/0/1
+vmx-mclag-topo-location-router1:xe-0/0/2 <-> vmx-mclag-topo-location-router2:xe-0/0/2
+    xe-0/0/1,xe-0/0/2:ae0.0:10.0.34.1/30 <->  xe-0/0/1,xe-0/0/2:ae0.0:10.0.34.2/30             
+
+
+另外的接口信息的
+vmx-mclag-topo-location-router1：
+lo0.0：3.3.3.3/32
+xe-0/0/0.0:10.0.13.1/30
+
+vqfx-mclag-topo-location-switch1:
+lo0.0：1.1.1.1/32
+irb0.78:10.0.78.1/30
+irb0.123:10.0.123.1/24 arp 10.0.123.2 l2-interface ae0.0 mac 02:05:86:71:a7:00
+irb0.123:10.0.123.1/24 arp 10.0.123.3 l2-interface ae3.0 mac 2c:6b:f5:04:84:c0
+
+Detailed Connection Information:
+  1. vmx-mclag-topo-location-router1:xe-0/0/1 <-> vmx-mclag-topo-location-router2:xe-0/0/1
+  2. vmx-mclag-topo-location-router1:xe-0/0/2 <-> vmx-mclag-topo-location-router2:xe-0/0/2
+  3. vmx-mclag-topo-location-router1:xe-0/0/3 <-> vqfx-mclag-topo-location-switch1:xe-0/0/6
+  4. vmx-mclag-topo-location-router1:xe-0/0/4 <-> vqfx-mclag-topo-location-switch2:xe-0/0/7
+  5. vmx-mclag-topo-location-router2:xe-0/0/3 <-> vqfx-mclag-topo-location-switch1:xe-0/0/7
+  6. vmx-mclag-topo-location-router2:xe-0/0/4 <-> vqfx-mclag-topo-location-switch2:xe-0/0/6
+  7. vmx-mclag-topo-location-router3:xe-0/0/1 <-> vqfx-mclag-topo-location-switch1:xe-0/0/5
+  8. vmx-mclag-topo-location-router3:xe-0/0/2 <-> vqfx-mclag-topo-location-switch2:xe-0/0/5
+  9. vqfx-mclag-topo-location-switch1:xe-0/0/1 <-> vqfx-mclag-topo-location-switch2:xe-0/0/1
+ 10. vqfx-mclag-topo-location-switch1:xe-0/0/2 <-> vqfx-mclag-topo-location-switch2:xe-0/0/2
+ 11. vqfx-mclag-topo-location-switch1:xe-0/0/3 <-> vqfx-mclag-topo-location-switch3:xe-0/0/1
+ 12. vqfx-mclag-topo-location-switch1:xe-0/0/4 <-> vqfx-mclag-topo-location-switch4:xe-0/0/1
+ 13. vqfx-mclag-topo-location-switch2:xe-0/0/3 <-> vqfx-mclag-topo-location-switch3:xe-0/0/2
+ 14. vqfx-mclag-topo-location-switch2:xe-0/0/4 <-> vqfx-mclag-topo-location-switch4:xe-0/0/2
+
+
+
+vmx-mclag-topo-location-router1:xe-0/0/1,xe-0/0/2:ae0.0:10.0.34.1/30 <-> vmx-mclag-topo-location-router2:xe-0/0/1,xe-0/0/2:ae0.0:10.0.34.2/30
+
+
+
+如果irb接口有被vlan里引用l3-interface  
+    v123 {
+        vlan-id 123;
+        l3-interface irb.123;
+    }
+irb0.123:v123<123>:10.0.123.1/24
+
+irb0.78:v78<78>:10.0.78.2/30
+
+如果没有引用：
+irb0.78:no-vlan:10.0.78.1/30
+
+
+
+-4的topo中”IP Information:“改成"link IP Info:" 并且根据文本内容调整文本框大小，
+位置放在topo图的下方，不要和topo图中的图形重叠
+
+-4的Interface Information:改成“Interface IP info”，没有IP信息的节点不需要打印出来，并且并且根据文本内容自动调整文本框大小。
+
+
+-4的”IP Information:“中如果有接口是trunk接口，并且members是all的话，打印所有v
+如果members是vlan的话，打印对应vlan下l3-interface的irb接口地址。
+
+
+
+
+加options --layer2（-l2），打印接口的相关Layer2信息，
+1.如果是trunk接口，打印接口下所有相关member的vlan信息。
+truck下打印的信息不对，比如switch1的ae0，需要打印ae0 trunk [ v1001<1001> v123<123> v78<78> v1002<1002> ]
+2.如果是access接口，打印对应的member vlan信息。
+xe-0/0/0 access v1001<1001>

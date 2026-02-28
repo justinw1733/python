@@ -1,0 +1,87 @@
+set system ports console log-out-on-disconnect
+set chassis aggregated-devices ethernet device-count 10
+set interfaces xe-0/0/1 ether-options 802.3ad ae0
+set interfaces xe-0/0/2 ether-options 802.3ad ae0
+set interfaces xe-0/0/3 ether-options 802.3ad ae1
+set interfaces xe-0/0/4 ether-options 802.3ad ae2
+set interfaces xe-0/0/5 ether-options 802.3ad ae3
+set interfaces xe-0/0/6 unit 0 family inet address 10.0.12.1/30
+set interfaces xe-0/0/7 unit 0 family inet address 10.0.16.1/30
+set interfaces ae0 aggregated-ether-options lacp active
+set interfaces ae0 unit 0 family ethernet-switching interface-mode trunk
+set interfaces ae0 unit 0 family ethernet-switching vlan members v1001
+set interfaces ae0 unit 0 family ethernet-switching vlan members v123
+set interfaces ae0 unit 0 family ethernet-switching vlan members v78
+set interfaces ae0 unit 0 family ethernet-switching vlan members v1002
+set interfaces ae1 aggregated-ether-options lacp active
+set interfaces ae1 aggregated-ether-options lacp system-id 00:00:01:00:00:01
+set interfaces ae1 aggregated-ether-options lacp admin-key 1
+set interfaces ae1 aggregated-ether-options mc-ae mc-ae-id 1
+set interfaces ae1 aggregated-ether-options mc-ae redundancy-group 1
+set interfaces ae1 aggregated-ether-options mc-ae chassis-id 1
+set interfaces ae1 aggregated-ether-options mc-ae mode active-active
+set interfaces ae1 aggregated-ether-options mc-ae status-control standby
+set interfaces ae1 aggregated-ether-options mc-ae init-delay-time 240
+set interfaces ae1 unit 0 family ethernet-switching interface-mode trunk
+set interfaces ae1 unit 0 family ethernet-switching vlan members v1001
+set interfaces ae1 unit 0 family ethernet-switching vlan members v1002
+set interfaces ae2 aggregated-ether-options lacp active
+set interfaces ae2 aggregated-ether-options lacp system-id 00:00:01:00:00:02
+set interfaces ae2 aggregated-ether-options lacp admin-key 2
+set interfaces ae2 aggregated-ether-options mc-ae mc-ae-id 2
+set interfaces ae2 aggregated-ether-options mc-ae redundancy-group 1
+set interfaces ae2 aggregated-ether-options mc-ae chassis-id 1
+set interfaces ae2 aggregated-ether-options mc-ae mode active-active
+set interfaces ae2 aggregated-ether-options mc-ae status-control standby
+set interfaces ae2 aggregated-ether-options mc-ae init-delay-time 240
+set interfaces ae2 unit 0 family ethernet-switching interface-mode trunk
+set interfaces ae2 unit 0 family ethernet-switching vlan members v1001
+set interfaces ae2 unit 0 family ethernet-switching vlan members v1002
+set interfaces ae3 aggregated-ether-options lacp active
+set interfaces ae3 aggregated-ether-options lacp system-id 00:00:01:00:00:03
+set interfaces ae3 aggregated-ether-options lacp admin-key 3
+set interfaces ae3 aggregated-ether-options mc-ae mc-ae-id 3
+set interfaces ae3 aggregated-ether-options mc-ae redundancy-group 1
+set interfaces ae3 aggregated-ether-options mc-ae chassis-id 1
+set interfaces ae3 aggregated-ether-options mc-ae mode active-active
+set interfaces ae3 aggregated-ether-options mc-ae status-control standby
+set interfaces ae3 aggregated-ether-options mc-ae init-delay-time 240
+set interfaces ae3 unit 0 family ethernet-switching interface-mode trunk
+set interfaces ae3 unit 0 family ethernet-switching vlan members v1001
+set interfaces ae3 unit 0 family ethernet-switching vlan members v123
+set interfaces ae3 unit 0 family ethernet-switching vlan members v1002
+set interfaces irb unit 78 family inet address 10.0.78.2/30
+set interfaces irb unit 123 family inet address 10.0.123.2/24 arp 10.0.123.1 l2-interface ae0.0
+set interfaces irb unit 123 family inet address 10.0.123.2/24 arp 10.0.123.1 mac 02:05:86:71:9b:00
+set interfaces irb unit 123 family inet address 10.0.123.2/24 arp 10.0.123.3 l2-interface ae3.0
+set interfaces irb unit 123 family inet address 10.0.123.2/24 arp 10.0.123.3 mac 2c:6b:f5:04:84:c0
+set interfaces lo0 unit 0 family inet address 2.2.2.2/24
+set multi-chassis multi-chassis-protection 10.0.78.1 interface ae0
+set policy-options policy-statement bgp-out term 1 from route-filter 10.10.1.0/24 exact
+set policy-options policy-statement bgp-out term 1 then accept
+set policy-options policy-statement bgp-out term last then reject
+set policy-options policy-statement lb term 1 then load-balance per-packet
+set routing-options static route 10.10.1.0/24 qualified-next-hop 10.0.123.3
+set routing-options forwarding-table export lb
+set routing-options router-id 2.2.2.2
+set routing-options autonomous-system 65012
+set protocols iccp local-ip-addr 10.0.78.2
+set protocols iccp peer 10.0.78.1 session-establishment-hold-time 340
+set protocols iccp peer 10.0.78.1 redundancy-group-id-list 1
+set protocols iccp peer 10.0.78.1 backup-liveness-detection backup-peer-ip 10.207.255.254
+set protocols iccp peer 10.0.78.1 liveness-detection minimum-receive-interval 1000
+set protocols iccp peer 10.0.78.1 liveness-detection transmit-interval minimum-interval 1000
+set protocols bgp group ebgp export bgp-out
+set protocols bgp group ebgp multipath
+set protocols bgp group ebgp neighbor 10.0.12.2 peer-as 65034
+set protocols bgp group ebgp neighbor 10.0.16.2 peer-as 65034
+set protocols l2-learning no-mclag-ifa-sync
+set protocols lldp interface all
+set protocols lldp interface em0 disable
+set switch-options service-id 1
+set vlans v1001 vlan-id 1001
+set vlans v1002 vlan-id 1002
+set vlans v123 vlan-id 123
+set vlans v123 l3-interface irb.123
+set vlans v78 vlan-id 78
+set vlans v78 l3-interface irb.78

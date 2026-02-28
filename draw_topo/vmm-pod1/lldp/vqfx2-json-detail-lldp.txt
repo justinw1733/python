@@ -1,0 +1,1995 @@
+{
+    "lldp-neighbors-information" : [
+    {
+        "attributes" : {"xmlns" : "http://xml.juniper.net/junos/20.2R0/lldp-mtx", 
+                        "junos:style" : "detail"
+                       }, 
+        "lldp-neighbor-information" : [
+        {
+            "lldp-index" : [
+            {
+                "data" : "8"
+            }
+            ], 
+            "lldp-ttl" : [
+            {
+                "data" : "120"
+            }
+            ], 
+            "lldp-timemark" : [
+            {
+                "data" : "Sun Aug 31 16:26:56 2025"
+            }
+            ], 
+            "lldp-age" : [
+            {
+                "data" : "12"
+            }
+            ], 
+            "lldp-local-interface" : [
+            {
+                "data" : "xe-0/0/3"
+            }
+            ], 
+            "lldp-local-parent-interface-name" : [
+            {
+                "data" : "ae1"
+            }
+            ], 
+            "lldp-local-port-id" : [
+            {
+                "data" : "521"
+            }
+            ], 
+            "lldp-local-port-ageout-count" : [
+            {
+                "data" : "0"
+            }
+            ], 
+            "lldp-remote-chassis-id-subtype" : [
+            {
+                "data" : "Mac address"
+            }
+            ], 
+            "lldp-remote-chassis-id" : [
+            {
+                "data" : "02:05:86:71:5f:00"
+            }
+            ], 
+            "lldp-remote-port-id-subtype" : [
+            {
+                "data" : "Locally assigned"
+            }
+            ], 
+            "lldp-remote-port-id" : [
+            {
+                "data" : "518"
+            }
+            ], 
+            "lldp-remote-port-description" : [
+            {
+                "data" : "xe-0/0/2"
+            }
+            ], 
+            "lldp-remote-system-name" : [
+            {
+                "data" : "vqfx3_re.englab.juniper.net"
+            }
+            ], 
+            "lldp-system-description" : [
+            {
+                "lldp-remote-system-description" : [
+                {
+                    "data" : "Juniper Networks, Inc. vqfx-10000 Ethernet Switch, kernel JUNOS 20.2R1.10, Build date: 2020-06-25 12:42:58 UTC Copyright (c) 1996-2020 Juniper Networks, Inc."
+                }
+                ]
+            }
+            ], 
+            "lldp-remote-system-capabilities-supported" : [
+            {
+                "data" : "Bridge Router "
+            }
+            ], 
+            "lldp-remote-system-capabilities-enabled" : [
+            {
+                "data" : "Bridge Router "
+            }
+            ], 
+            "lldp-org-specific-tlv" : [
+            {
+                "lldp-remote-oui-802-3" : [
+                {
+                    "data" : "00120f"
+                }
+                ], 
+                "lldp-remote-subtype-mac" : [
+                {
+                    "data" : "1"
+                }
+                ], 
+                "lldp-remote-subtype-mac-autonegotiation" : [
+                {
+                    "data" : "not supported, disabled (0x0)"
+                }
+                ], 
+                "lldp-remote-subtype-mac-pmd" : [
+                {
+                    "data" : "8000"
+                }
+                ], 
+                "lldp-remote-subtype-mac-mau" : [
+                {
+                    "data" : "0"
+                }
+                ], 
+                "lldp-remote-index" : [
+                {
+                    "data" : "1"
+                }
+                ]
+            }, 
+            {
+                "lldp-remote-oui-802-3" : [
+                {
+                    "data" : "00120f"
+                }
+                ], 
+                "lldp-remote-subtype-lag" : [
+                {
+                    "data" : "3"
+                }
+                ], 
+                "lldp-remote-subtype-lag-status" : [
+                {
+                    "data" : "supported, enabled (0x3)"
+                }
+                ], 
+                "lldp-remote-subtype-lag-portid" : [
+                {
+                    "data" : "540"
+                }
+                ], 
+                "lldp-remote-index" : [
+                {
+                    "data" : "2"
+                }
+                ]
+            }, 
+            {
+                "lldp-remote-oui-802-3" : [
+                {
+                    "data" : "00120f"
+                }
+                ], 
+                "lldp-remote-subtype-mtu" : [
+                {
+                    "data" : "4"
+                }
+                ], 
+                "lldp-remote-subtype-mtu-size" : [
+                {
+                    "data" : "1514"
+                }
+                ], 
+                "lldp-remote-index" : [
+                {
+                    "data" : "3"
+                }
+                ]
+            }, 
+            {
+                "lldp-remote-oui-juniper" : [
+                {
+                    "data" : "009069"
+                }
+                ], 
+                "lldp-remote-subtype-serial" : [
+                {
+                    "data" : "1"
+                }
+                ], 
+                "lldp-remote-subtype-slot-serial" : [
+                {
+                    "data" : "cbideddddddd"
+                }
+                ], 
+                "lldp-remote-index" : [
+                {
+                    "data" : "4"
+                }
+                ]
+            }, 
+            {
+                "lldp-remote-oui-802-1" : [
+                {
+                    "data" : "0080c2"
+                }
+                ], 
+                "lldp-remote-subtype-vlan" : [
+                {
+                    "data" : "3"
+                }
+                ], 
+                "lldp-remote-subtype-vlan-id" : [
+                {
+                    "data" : "1001"
+                }
+                ], 
+                "lldp-remote-subtype-vlan-name" : [
+                {
+                    "data" : "vlan-1001"
+                }
+                ], 
+                "lldp-remote-index" : [
+                {
+                    "data" : "5"
+                }
+                ]
+            }, 
+            {
+                "lldp-remote-oui-802-1" : [
+                {
+                    "data" : "0080c2"
+                }
+                ], 
+                "lldp-remote-subtype-vlan" : [
+                {
+                    "data" : "3"
+                }
+                ], 
+                "lldp-remote-subtype-vlan-id" : [
+                {
+                    "data" : "1002"
+                }
+                ], 
+                "lldp-remote-subtype-vlan-name" : [
+                {
+                    "data" : "vlan-1002"
+                }
+                ], 
+                "lldp-remote-index" : [
+                {
+                    "data" : "6"
+                }
+                ]
+            }
+            ]
+        }, 
+        {
+            "lldp-index" : [
+            {
+                "data" : "3"
+            }
+            ], 
+            "lldp-ttl" : [
+            {
+                "data" : "120"
+            }
+            ], 
+            "lldp-timemark" : [
+            {
+                "data" : "Sun Aug 31 16:27:05 2025"
+            }
+            ], 
+            "lldp-age" : [
+            {
+                "data" : "3"
+            }
+            ], 
+            "lldp-local-interface" : [
+            {
+                "data" : "xe-0/0/1"
+            }
+            ], 
+            "lldp-local-parent-interface-name" : [
+            {
+                "data" : "ae0"
+            }
+            ], 
+            "lldp-local-port-id" : [
+            {
+                "data" : "519"
+            }
+            ], 
+            "lldp-local-port-ageout-count" : [
+            {
+                "data" : "0"
+            }
+            ], 
+            "lldp-remote-chassis-id-subtype" : [
+            {
+                "data" : "Mac address"
+            }
+            ], 
+            "lldp-remote-chassis-id" : [
+            {
+                "data" : "02:05:86:71:a6:00"
+            }
+            ], 
+            "lldp-remote-port-id-subtype" : [
+            {
+                "data" : "Locally assigned"
+            }
+            ], 
+            "lldp-remote-port-id" : [
+            {
+                "data" : "519"
+            }
+            ], 
+            "lldp-remote-port-description" : [
+            {
+                "data" : "xe-0/0/1"
+            }
+            ], 
+            "lldp-remote-system-name" : [
+            {
+                "data" : "vqfx1_re.englab.juniper.net"
+            }
+            ], 
+            "lldp-system-description" : [
+            {
+                "lldp-remote-system-description" : [
+                {
+                    "data" : "Juniper Networks, Inc. vqfx-10000 Ethernet Switch, kernel JUNOS 20.2R1.10, Build date: 2020-06-25 12:42:58 UTC Copyright (c) 1996-2020 Juniper Networks, Inc."
+                }
+                ]
+            }
+            ], 
+            "lldp-remote-system-capabilities-supported" : [
+            {
+                "data" : "Bridge Router "
+            }
+            ], 
+            "lldp-remote-system-capabilities-enabled" : [
+            {
+                "data" : "Bridge Router "
+            }
+            ], 
+            "lldp-org-specific-tlv" : [
+            {
+                "lldp-remote-oui-802-3" : [
+                {
+                    "data" : "00120f"
+                }
+                ], 
+                "lldp-remote-subtype-mac" : [
+                {
+                    "data" : "1"
+                }
+                ], 
+                "lldp-remote-subtype-mac-autonegotiation" : [
+                {
+                    "data" : "not supported, disabled (0x0)"
+                }
+                ], 
+                "lldp-remote-subtype-mac-pmd" : [
+                {
+                    "data" : "8000"
+                }
+                ], 
+                "lldp-remote-subtype-mac-mau" : [
+                {
+                    "data" : "0"
+                }
+                ], 
+                "lldp-remote-index" : [
+                {
+                    "data" : "1"
+                }
+                ]
+            }, 
+            {
+                "lldp-remote-oui-802-3" : [
+                {
+                    "data" : "00120f"
+                }
+                ], 
+                "lldp-remote-subtype-lag" : [
+                {
+                    "data" : "3"
+                }
+                ], 
+                "lldp-remote-subtype-lag-status" : [
+                {
+                    "data" : "supported, enabled (0x3)"
+                }
+                ], 
+                "lldp-remote-subtype-lag-portid" : [
+                {
+                    "data" : "543"
+                }
+                ], 
+                "lldp-remote-index" : [
+                {
+                    "data" : "2"
+                }
+                ]
+            }, 
+            {
+                "lldp-remote-oui-802-3" : [
+                {
+                    "data" : "00120f"
+                }
+                ], 
+                "lldp-remote-subtype-mtu" : [
+                {
+                    "data" : "4"
+                }
+                ], 
+                "lldp-remote-subtype-mtu-size" : [
+                {
+                    "data" : "1514"
+                }
+                ], 
+                "lldp-remote-index" : [
+                {
+                    "data" : "3"
+                }
+                ]
+            }, 
+            {
+                "lldp-remote-oui-juniper" : [
+                {
+                    "data" : "009069"
+                }
+                ], 
+                "lldp-remote-subtype-serial" : [
+                {
+                    "data" : "1"
+                }
+                ], 
+                "lldp-remote-subtype-slot-serial" : [
+                {
+                    "data" : "cbideddddddd"
+                }
+                ], 
+                "lldp-remote-index" : [
+                {
+                    "data" : "4"
+                }
+                ]
+            }, 
+            {
+                "lldp-remote-oui-802-1" : [
+                {
+                    "data" : "0080c2"
+                }
+                ], 
+                "lldp-remote-subtype-vlan" : [
+                {
+                    "data" : "3"
+                }
+                ], 
+                "lldp-remote-subtype-vlan-id" : [
+                {
+                    "data" : "1001"
+                }
+                ], 
+                "lldp-remote-subtype-vlan-name" : [
+                {
+                    "data" : "vlan-1001"
+                }
+                ], 
+                "lldp-remote-index" : [
+                {
+                    "data" : "5"
+                }
+                ]
+            }, 
+            {
+                "lldp-remote-oui-802-1" : [
+                {
+                    "data" : "0080c2"
+                }
+                ], 
+                "lldp-remote-subtype-vlan" : [
+                {
+                    "data" : "3"
+                }
+                ], 
+                "lldp-remote-subtype-vlan-id" : [
+                {
+                    "data" : "1002"
+                }
+                ], 
+                "lldp-remote-subtype-vlan-name" : [
+                {
+                    "data" : "vlan-1002"
+                }
+                ], 
+                "lldp-remote-index" : [
+                {
+                    "data" : "6"
+                }
+                ]
+            }, 
+            {
+                "lldp-remote-oui-802-1" : [
+                {
+                    "data" : "0080c2"
+                }
+                ], 
+                "lldp-remote-subtype-vlan" : [
+                {
+                    "data" : "3"
+                }
+                ], 
+                "lldp-remote-subtype-vlan-id" : [
+                {
+                    "data" : "123"
+                }
+                ], 
+                "lldp-remote-subtype-vlan-name" : [
+                {
+                    "data" : "vlan-123"
+                }
+                ], 
+                "lldp-remote-index" : [
+                {
+                    "data" : "7"
+                }
+                ]
+            }, 
+            {
+                "lldp-remote-oui-802-1" : [
+                {
+                    "data" : "0080c2"
+                }
+                ], 
+                "lldp-remote-subtype-vlan" : [
+                {
+                    "data" : "3"
+                }
+                ], 
+                "lldp-remote-subtype-vlan-id" : [
+                {
+                    "data" : "78"
+                }
+                ], 
+                "lldp-remote-subtype-vlan-name" : [
+                {
+                    "data" : "vlan-78"
+                }
+                ], 
+                "lldp-remote-index" : [
+                {
+                    "data" : "8"
+                }
+                ]
+            }
+            ]
+        }, 
+        {
+            "lldp-index" : [
+            {
+                "data" : "5"
+            }
+            ], 
+            "lldp-ttl" : [
+            {
+                "data" : "120"
+            }
+            ], 
+            "lldp-timemark" : [
+            {
+                "data" : "Sun Aug 31 16:27:03 2025"
+            }
+            ], 
+            "lldp-age" : [
+            {
+                "data" : "5"
+            }
+            ], 
+            "lldp-local-interface" : [
+            {
+                "data" : "xe-0/0/2"
+            }
+            ], 
+            "lldp-local-parent-interface-name" : [
+            {
+                "data" : "ae0"
+            }
+            ], 
+            "lldp-local-port-id" : [
+            {
+                "data" : "520"
+            }
+            ], 
+            "lldp-local-port-ageout-count" : [
+            {
+                "data" : "0"
+            }
+            ], 
+            "lldp-remote-chassis-id-subtype" : [
+            {
+                "data" : "Mac address"
+            }
+            ], 
+            "lldp-remote-chassis-id" : [
+            {
+                "data" : "02:05:86:71:a6:00"
+            }
+            ], 
+            "lldp-remote-port-id-subtype" : [
+            {
+                "data" : "Locally assigned"
+            }
+            ], 
+            "lldp-remote-port-id" : [
+            {
+                "data" : "521"
+            }
+            ], 
+            "lldp-remote-port-description" : [
+            {
+                "data" : "xe-0/0/2"
+            }
+            ], 
+            "lldp-remote-system-name" : [
+            {
+                "data" : "vqfx1_re.englab.juniper.net"
+            }
+            ], 
+            "lldp-system-description" : [
+            {
+                "lldp-remote-system-description" : [
+                {
+                    "data" : "Juniper Networks, Inc. vqfx-10000 Ethernet Switch, kernel JUNOS 20.2R1.10, Build date: 2020-06-25 12:42:58 UTC Copyright (c) 1996-2020 Juniper Networks, Inc."
+                }
+                ]
+            }
+            ], 
+            "lldp-remote-system-capabilities-supported" : [
+            {
+                "data" : "Bridge Router "
+            }
+            ], 
+            "lldp-remote-system-capabilities-enabled" : [
+            {
+                "data" : "Bridge Router "
+            }
+            ], 
+            "lldp-org-specific-tlv" : [
+            {
+                "lldp-remote-oui-802-3" : [
+                {
+                    "data" : "00120f"
+                }
+                ], 
+                "lldp-remote-subtype-mac" : [
+                {
+                    "data" : "1"
+                }
+                ], 
+                "lldp-remote-subtype-mac-autonegotiation" : [
+                {
+                    "data" : "not supported, disabled (0x0)"
+                }
+                ], 
+                "lldp-remote-subtype-mac-pmd" : [
+                {
+                    "data" : "8000"
+                }
+                ], 
+                "lldp-remote-subtype-mac-mau" : [
+                {
+                    "data" : "0"
+                }
+                ], 
+                "lldp-remote-index" : [
+                {
+                    "data" : "1"
+                }
+                ]
+            }, 
+            {
+                "lldp-remote-oui-802-3" : [
+                {
+                    "data" : "00120f"
+                }
+                ], 
+                "lldp-remote-subtype-lag" : [
+                {
+                    "data" : "3"
+                }
+                ], 
+                "lldp-remote-subtype-lag-status" : [
+                {
+                    "data" : "supported, enabled (0x3)"
+                }
+                ], 
+                "lldp-remote-subtype-lag-portid" : [
+                {
+                    "data" : "543"
+                }
+                ], 
+                "lldp-remote-index" : [
+                {
+                    "data" : "2"
+                }
+                ]
+            }, 
+            {
+                "lldp-remote-oui-802-3" : [
+                {
+                    "data" : "00120f"
+                }
+                ], 
+                "lldp-remote-subtype-mtu" : [
+                {
+                    "data" : "4"
+                }
+                ], 
+                "lldp-remote-subtype-mtu-size" : [
+                {
+                    "data" : "1514"
+                }
+                ], 
+                "lldp-remote-index" : [
+                {
+                    "data" : "3"
+                }
+                ]
+            }, 
+            {
+                "lldp-remote-oui-juniper" : [
+                {
+                    "data" : "009069"
+                }
+                ], 
+                "lldp-remote-subtype-serial" : [
+                {
+                    "data" : "1"
+                }
+                ], 
+                "lldp-remote-subtype-slot-serial" : [
+                {
+                    "data" : "cbideddddddd"
+                }
+                ], 
+                "lldp-remote-index" : [
+                {
+                    "data" : "4"
+                }
+                ]
+            }, 
+            {
+                "lldp-remote-oui-802-1" : [
+                {
+                    "data" : "0080c2"
+                }
+                ], 
+                "lldp-remote-subtype-vlan" : [
+                {
+                    "data" : "3"
+                }
+                ], 
+                "lldp-remote-subtype-vlan-id" : [
+                {
+                    "data" : "1001"
+                }
+                ], 
+                "lldp-remote-subtype-vlan-name" : [
+                {
+                    "data" : "vlan-1001"
+                }
+                ], 
+                "lldp-remote-index" : [
+                {
+                    "data" : "5"
+                }
+                ]
+            }, 
+            {
+                "lldp-remote-oui-802-1" : [
+                {
+                    "data" : "0080c2"
+                }
+                ], 
+                "lldp-remote-subtype-vlan" : [
+                {
+                    "data" : "3"
+                }
+                ], 
+                "lldp-remote-subtype-vlan-id" : [
+                {
+                    "data" : "1002"
+                }
+                ], 
+                "lldp-remote-subtype-vlan-name" : [
+                {
+                    "data" : "vlan-1002"
+                }
+                ], 
+                "lldp-remote-index" : [
+                {
+                    "data" : "6"
+                }
+                ]
+            }, 
+            {
+                "lldp-remote-oui-802-1" : [
+                {
+                    "data" : "0080c2"
+                }
+                ], 
+                "lldp-remote-subtype-vlan" : [
+                {
+                    "data" : "3"
+                }
+                ], 
+                "lldp-remote-subtype-vlan-id" : [
+                {
+                    "data" : "123"
+                }
+                ], 
+                "lldp-remote-subtype-vlan-name" : [
+                {
+                    "data" : "vlan-123"
+                }
+                ], 
+                "lldp-remote-index" : [
+                {
+                    "data" : "7"
+                }
+                ]
+            }, 
+            {
+                "lldp-remote-oui-802-1" : [
+                {
+                    "data" : "0080c2"
+                }
+                ], 
+                "lldp-remote-subtype-vlan" : [
+                {
+                    "data" : "3"
+                }
+                ], 
+                "lldp-remote-subtype-vlan-id" : [
+                {
+                    "data" : "78"
+                }
+                ], 
+                "lldp-remote-subtype-vlan-name" : [
+                {
+                    "data" : "vlan-78"
+                }
+                ], 
+                "lldp-remote-index" : [
+                {
+                    "data" : "8"
+                }
+                ]
+            }
+            ]
+        }, 
+        {
+            "lldp-index" : [
+            {
+                "data" : "10"
+            }
+            ], 
+            "lldp-ttl" : [
+            {
+                "data" : "120"
+            }
+            ], 
+            "lldp-timemark" : [
+            {
+                "data" : "Sun Aug 31 16:26:52 2025"
+            }
+            ], 
+            "lldp-age" : [
+            {
+                "data" : "16"
+            }
+            ], 
+            "lldp-local-interface" : [
+            {
+                "data" : "xe-0/0/4"
+            }
+            ], 
+            "lldp-local-parent-interface-name" : [
+            {
+                "data" : "ae2"
+            }
+            ], 
+            "lldp-local-port-id" : [
+            {
+                "data" : "523"
+            }
+            ], 
+            "lldp-local-port-ageout-count" : [
+            {
+                "data" : "0"
+            }
+            ], 
+            "lldp-remote-chassis-id-subtype" : [
+            {
+                "data" : "Mac address"
+            }
+            ], 
+            "lldp-remote-chassis-id" : [
+            {
+                "data" : "02:05:86:71:da:00"
+            }
+            ], 
+            "lldp-remote-port-id-subtype" : [
+            {
+                "data" : "Locally assigned"
+            }
+            ], 
+            "lldp-remote-port-id" : [
+            {
+                "data" : "519"
+            }
+            ], 
+            "lldp-remote-port-description" : [
+            {
+                "data" : "xe-0/0/2"
+            }
+            ], 
+            "lldp-remote-system-name" : [
+            {
+                "data" : "vqfx4_re.englab.juniper.net"
+            }
+            ], 
+            "lldp-system-description" : [
+            {
+                "lldp-remote-system-description" : [
+                {
+                    "data" : "Juniper Networks, Inc. vqfx-10000 Ethernet Switch, kernel JUNOS 20.2R1.10, Build date: 2020-06-25 12:42:58 UTC Copyright (c) 1996-2020 Juniper Networks, Inc."
+                }
+                ]
+            }
+            ], 
+            "lldp-remote-system-capabilities-supported" : [
+            {
+                "data" : "Bridge Router "
+            }
+            ], 
+            "lldp-remote-system-capabilities-enabled" : [
+            {
+                "data" : "Bridge Router "
+            }
+            ], 
+            "lldp-org-specific-tlv" : [
+            {
+                "lldp-remote-oui-802-3" : [
+                {
+                    "data" : "00120f"
+                }
+                ], 
+                "lldp-remote-subtype-mac" : [
+                {
+                    "data" : "1"
+                }
+                ], 
+                "lldp-remote-subtype-mac-autonegotiation" : [
+                {
+                    "data" : "not supported, disabled (0x0)"
+                }
+                ], 
+                "lldp-remote-subtype-mac-pmd" : [
+                {
+                    "data" : "8000"
+                }
+                ], 
+                "lldp-remote-subtype-mac-mau" : [
+                {
+                    "data" : "0"
+                }
+                ], 
+                "lldp-remote-index" : [
+                {
+                    "data" : "1"
+                }
+                ]
+            }, 
+            {
+                "lldp-remote-oui-802-3" : [
+                {
+                    "data" : "00120f"
+                }
+                ], 
+                "lldp-remote-subtype-lag" : [
+                {
+                    "data" : "3"
+                }
+                ], 
+                "lldp-remote-subtype-lag-status" : [
+                {
+                    "data" : "supported, enabled (0x3)"
+                }
+                ], 
+                "lldp-remote-subtype-lag-portid" : [
+                {
+                    "data" : "540"
+                }
+                ], 
+                "lldp-remote-index" : [
+                {
+                    "data" : "2"
+                }
+                ]
+            }, 
+            {
+                "lldp-remote-oui-802-3" : [
+                {
+                    "data" : "00120f"
+                }
+                ], 
+                "lldp-remote-subtype-mtu" : [
+                {
+                    "data" : "4"
+                }
+                ], 
+                "lldp-remote-subtype-mtu-size" : [
+                {
+                    "data" : "1514"
+                }
+                ], 
+                "lldp-remote-index" : [
+                {
+                    "data" : "3"
+                }
+                ]
+            }, 
+            {
+                "lldp-remote-oui-juniper" : [
+                {
+                    "data" : "009069"
+                }
+                ], 
+                "lldp-remote-subtype-serial" : [
+                {
+                    "data" : "1"
+                }
+                ], 
+                "lldp-remote-subtype-slot-serial" : [
+                {
+                    "data" : "cbideddddddd"
+                }
+                ], 
+                "lldp-remote-index" : [
+                {
+                    "data" : "4"
+                }
+                ]
+            }, 
+            {
+                "lldp-remote-oui-802-1" : [
+                {
+                    "data" : "0080c2"
+                }
+                ], 
+                "lldp-remote-subtype-vlan" : [
+                {
+                    "data" : "3"
+                }
+                ], 
+                "lldp-remote-subtype-vlan-id" : [
+                {
+                    "data" : "1001"
+                }
+                ], 
+                "lldp-remote-subtype-vlan-name" : [
+                {
+                    "data" : "vlan-1001"
+                }
+                ], 
+                "lldp-remote-index" : [
+                {
+                    "data" : "5"
+                }
+                ]
+            }, 
+            {
+                "lldp-remote-oui-802-1" : [
+                {
+                    "data" : "0080c2"
+                }
+                ], 
+                "lldp-remote-subtype-vlan" : [
+                {
+                    "data" : "3"
+                }
+                ], 
+                "lldp-remote-subtype-vlan-id" : [
+                {
+                    "data" : "1002"
+                }
+                ], 
+                "lldp-remote-subtype-vlan-name" : [
+                {
+                    "data" : "vlan-1002"
+                }
+                ], 
+                "lldp-remote-index" : [
+                {
+                    "data" : "6"
+                }
+                ]
+            }
+            ]
+        }, 
+        {
+            "lldp-index" : [
+            {
+                "data" : "7"
+            }
+            ], 
+            "lldp-ttl" : [
+            {
+                "data" : "120"
+            }
+            ], 
+            "lldp-timemark" : [
+            {
+                "data" : "Sun Aug 31 16:26:49 2025"
+            }
+            ], 
+            "lldp-age" : [
+            {
+                "data" : "19"
+            }
+            ], 
+            "lldp-local-interface" : [
+            {
+                "data" : "xe-0/0/6"
+            }
+            ], 
+            "lldp-local-parent-interface-name" : [
+            {
+                "data" : "-"
+            }
+            ], 
+            "lldp-local-port-id" : [
+            {
+                "data" : "525"
+            }
+            ], 
+            "lldp-local-port-ageout-count" : [
+            {
+                "data" : "0"
+            }
+            ], 
+            "lldp-remote-chassis-id-subtype" : [
+            {
+                "data" : "Mac address"
+            }
+            ], 
+            "lldp-remote-chassis-id" : [
+            {
+                "data" : "2c:6b:f5:40:4b:c0"
+            }
+            ], 
+            "lldp-remote-port-id-subtype" : [
+            {
+                "data" : "Locally assigned"
+            }
+            ], 
+            "lldp-remote-port-id" : [
+            {
+                "data" : "530"
+            }
+            ], 
+            "lldp-remote-port-description" : [
+            {
+                "data" : "xe-0/0/4"
+            }
+            ], 
+            "lldp-remote-system-name" : [
+            {
+                "data" : "vmx2_re.englab.juniper.net"
+            }
+            ], 
+            "lldp-system-description" : [
+            {
+                "lldp-remote-system-description" : [
+                {
+                    "data" : "Juniper Networks, Inc. mx960 internet router, kernel JUNOS 23.4R2-S4.11, Build date: 2025-03-14 21:12:19 UTC Copyright (c) 1996-2025 Juniper Networks, Inc."
+                }
+                ]
+            }
+            ], 
+            "lldp-remote-system-capabilities-supported" : [
+            {
+                "data" : "Bridge Router "
+            }
+            ], 
+            "lldp-remote-system-capabilities-enabled" : [
+            {
+                "data" : "Bridge Router "
+            }
+            ], 
+            "lldp-remote-management-address-type" : [
+            {
+                "data" : "IPv4(1)"
+            }
+            ], 
+            "lldp-remote-management-address" : [
+            {
+                "data" : "10.207.213.85"
+            }
+            ], 
+            "lldp-remote-management-address-port-id" : [
+            {
+                "data" : "1"
+            }
+            ], 
+            "lldp-remote-management-address-interface-subtype" : [
+            {
+                "data" : "ifIndex(2)"
+            }
+            ], 
+            "lldp-remote-management-addr-oid" : [
+            {
+                "data" : "1.3.6.1.2.1.31.1.1.1.1.1."
+            }
+            ], 
+            "lldp-org-specific-tlv" : [
+            {
+                "lldp-remote-oui-802-3" : [
+                {
+                    "data" : "00120f"
+                }
+                ], 
+                "lldp-remote-subtype-mac" : [
+                {
+                    "data" : "1"
+                }
+                ], 
+                "lldp-remote-subtype-mac-autonegotiation" : [
+                {
+                    "data" : "not supported, disabled (0x0)"
+                }
+                ], 
+                "lldp-remote-subtype-mac-pmd" : [
+                {
+                    "data" : "0"
+                }
+                ], 
+                "lldp-remote-subtype-mac-mau" : [
+                {
+                    "data" : "0"
+                }
+                ], 
+                "lldp-remote-index" : [
+                {
+                    "data" : "1"
+                }
+                ]
+            }, 
+            {
+                "lldp-remote-oui-802-3" : [
+                {
+                    "data" : "00120f"
+                }
+                ], 
+                "lldp-remote-subtype-lag" : [
+                {
+                    "data" : "3"
+                }
+                ], 
+                "lldp-remote-subtype-lag-status" : [
+                {
+                    "data" : "supported, disabled (0x1)"
+                }
+                ], 
+                "lldp-remote-subtype-lag-portid" : [
+                {
+                    "data" : "0"
+                }
+                ], 
+                "lldp-remote-index" : [
+                {
+                    "data" : "2"
+                }
+                ]
+            }, 
+            {
+                "lldp-remote-oui-802-3" : [
+                {
+                    "data" : "00120f"
+                }
+                ], 
+                "lldp-remote-subtype-mtu" : [
+                {
+                    "data" : "4"
+                }
+                ], 
+                "lldp-remote-subtype-mtu-size" : [
+                {
+                    "data" : "1514"
+                }
+                ], 
+                "lldp-remote-index" : [
+                {
+                    "data" : "3"
+                }
+                ]
+            }, 
+            {
+                "lldp-remote-oui-802-1" : [
+                {
+                    "data" : "0080c2"
+                }
+                ], 
+                "lldp-remote-subtype" : [
+                {
+                    "data" : "(7)"
+                }
+                ], 
+                "lldp-remote-value" : [
+                {
+                    "data" : "0100000000 "
+                }
+                ], 
+                "lldp-remote-index" : [
+                {
+                    "data" : "4"
+                }
+                ]
+            }, 
+            {
+                "lldp-remote-oui-juniper" : [
+                {
+                    "data" : "009069"
+                }
+                ], 
+                "lldp-remote-subtype-serial" : [
+                {
+                    "data" : "1"
+                }
+                ], 
+                "lldp-remote-subtype-slot-serial" : [
+                {
+                    "data" : "VM68B43B1113"
+                }
+                ], 
+                "lldp-remote-index" : [
+                {
+                    "data" : "5"
+                }
+                ]
+            }, 
+            {
+                "lldp-remote-oui-juniper" : [
+                {
+                    "data" : "009069"
+                }
+                ], 
+                "lldp-remote-subtype" : [
+                {
+                    "data" : "(12)"
+                }
+                ], 
+                "lldp-remote-value" : [
+                {
+                    "data" : "0000006500000000"
+                }
+                ], 
+                "lldp-remote-index" : [
+                {
+                    "data" : "6"
+                }
+                ]
+            }
+            ]
+        }, 
+        {
+            "lldp-index" : [
+            {
+                "data" : "9"
+            }
+            ], 
+            "lldp-ttl" : [
+            {
+                "data" : "120"
+            }
+            ], 
+            "lldp-timemark" : [
+            {
+                "data" : "Sun Aug 31 16:26:42 2025"
+            }
+            ], 
+            "lldp-age" : [
+            {
+                "data" : "26"
+            }
+            ], 
+            "lldp-local-interface" : [
+            {
+                "data" : "xe-0/0/7"
+            }
+            ], 
+            "lldp-local-parent-interface-name" : [
+            {
+                "data" : "-"
+            }
+            ], 
+            "lldp-local-port-id" : [
+            {
+                "data" : "526"
+            }
+            ], 
+            "lldp-local-port-ageout-count" : [
+            {
+                "data" : "0"
+            }
+            ], 
+            "lldp-remote-chassis-id-subtype" : [
+            {
+                "data" : "Mac address"
+            }
+            ], 
+            "lldp-remote-chassis-id" : [
+            {
+                "data" : "2c:6b:f5:a6:af:c0"
+            }
+            ], 
+            "lldp-remote-port-id-subtype" : [
+            {
+                "data" : "Locally assigned"
+            }
+            ], 
+            "lldp-remote-port-id" : [
+            {
+                "data" : "527"
+            }
+            ], 
+            "lldp-remote-port-description" : [
+            {
+                "data" : "xe-0/0/4"
+            }
+            ], 
+            "lldp-remote-system-name" : [
+            {
+                "data" : "vmx1_re.englab.juniper.net"
+            }
+            ], 
+            "lldp-system-description" : [
+            {
+                "lldp-remote-system-description" : [
+                {
+                    "data" : "Juniper Networks, Inc. mx960 internet router, kernel JUNOS 23.4R2-S4.11, Build date: 2025-03-14 21:12:19 UTC Copyright (c) 1996-2025 Juniper Networks, Inc."
+                }
+                ]
+            }
+            ], 
+            "lldp-remote-system-capabilities-supported" : [
+            {
+                "data" : "Bridge Router "
+            }
+            ], 
+            "lldp-remote-system-capabilities-enabled" : [
+            {
+                "data" : "Bridge Router "
+            }
+            ], 
+            "lldp-remote-management-address-type" : [
+            {
+                "data" : "IPv4(1)"
+            }
+            ], 
+            "lldp-remote-management-address" : [
+            {
+                "data" : "10.207.217.203"
+            }
+            ], 
+            "lldp-remote-management-address-port-id" : [
+            {
+                "data" : "1"
+            }
+            ], 
+            "lldp-remote-management-address-interface-subtype" : [
+            {
+                "data" : "ifIndex(2)"
+            }
+            ], 
+            "lldp-remote-management-addr-oid" : [
+            {
+                "data" : "1.3.6.1.2.1.31.1.1.1.1.1."
+            }
+            ], 
+            "lldp-org-specific-tlv" : [
+            {
+                "lldp-remote-oui-802-3" : [
+                {
+                    "data" : "00120f"
+                }
+                ], 
+                "lldp-remote-subtype-mac" : [
+                {
+                    "data" : "1"
+                }
+                ], 
+                "lldp-remote-subtype-mac-autonegotiation" : [
+                {
+                    "data" : "not supported, disabled (0x0)"
+                }
+                ], 
+                "lldp-remote-subtype-mac-pmd" : [
+                {
+                    "data" : "0"
+                }
+                ], 
+                "lldp-remote-subtype-mac-mau" : [
+                {
+                    "data" : "0"
+                }
+                ], 
+                "lldp-remote-index" : [
+                {
+                    "data" : "1"
+                }
+                ]
+            }, 
+            {
+                "lldp-remote-oui-802-3" : [
+                {
+                    "data" : "00120f"
+                }
+                ], 
+                "lldp-remote-subtype-lag" : [
+                {
+                    "data" : "3"
+                }
+                ], 
+                "lldp-remote-subtype-lag-status" : [
+                {
+                    "data" : "supported, disabled (0x1)"
+                }
+                ], 
+                "lldp-remote-subtype-lag-portid" : [
+                {
+                    "data" : "0"
+                }
+                ], 
+                "lldp-remote-index" : [
+                {
+                    "data" : "2"
+                }
+                ]
+            }, 
+            {
+                "lldp-remote-oui-802-3" : [
+                {
+                    "data" : "00120f"
+                }
+                ], 
+                "lldp-remote-subtype-mtu" : [
+                {
+                    "data" : "4"
+                }
+                ], 
+                "lldp-remote-subtype-mtu-size" : [
+                {
+                    "data" : "1514"
+                }
+                ], 
+                "lldp-remote-index" : [
+                {
+                    "data" : "3"
+                }
+                ]
+            }, 
+            {
+                "lldp-remote-oui-802-1" : [
+                {
+                    "data" : "0080c2"
+                }
+                ], 
+                "lldp-remote-subtype" : [
+                {
+                    "data" : "(7)"
+                }
+                ], 
+                "lldp-remote-value" : [
+                {
+                    "data" : "0100000000 "
+                }
+                ], 
+                "lldp-remote-index" : [
+                {
+                    "data" : "4"
+                }
+                ]
+            }, 
+            {
+                "lldp-remote-oui-juniper" : [
+                {
+                    "data" : "009069"
+                }
+                ], 
+                "lldp-remote-subtype-serial" : [
+                {
+                    "data" : "1"
+                }
+                ], 
+                "lldp-remote-subtype-slot-serial" : [
+                {
+                    "data" : "VM68B43B0A3F"
+                }
+                ], 
+                "lldp-remote-index" : [
+                {
+                    "data" : "5"
+                }
+                ]
+            }, 
+            {
+                "lldp-remote-oui-juniper" : [
+                {
+                    "data" : "009069"
+                }
+                ], 
+                "lldp-remote-subtype" : [
+                {
+                    "data" : "(12)"
+                }
+                ], 
+                "lldp-remote-value" : [
+                {
+                    "data" : "0000006500000000"
+                }
+                ], 
+                "lldp-remote-index" : [
+                {
+                    "data" : "6"
+                }
+                ]
+            }
+            ]
+        }, 
+        {
+            "lldp-index" : [
+            {
+                "data" : "6"
+            }
+            ], 
+            "lldp-ttl" : [
+            {
+                "data" : "120"
+            }
+            ], 
+            "lldp-timemark" : [
+            {
+                "data" : "Sun Aug 31 16:26:50 2025"
+            }
+            ], 
+            "lldp-age" : [
+            {
+                "data" : "18"
+            }
+            ], 
+            "lldp-local-interface" : [
+            {
+                "data" : "xe-0/0/5"
+            }
+            ], 
+            "lldp-local-parent-interface-name" : [
+            {
+                "data" : "ae3"
+            }
+            ], 
+            "lldp-local-port-id" : [
+            {
+                "data" : "524"
+            }
+            ], 
+            "lldp-local-port-ageout-count" : [
+            {
+                "data" : "0"
+            }
+            ], 
+            "lldp-remote-chassis-id-subtype" : [
+            {
+                "data" : "Mac address"
+            }
+            ], 
+            "lldp-remote-chassis-id" : [
+            {
+                "data" : "2c:6b:f5:e8:69:c0"
+            }
+            ], 
+            "lldp-remote-port-id-subtype" : [
+            {
+                "data" : "Locally assigned"
+            }
+            ], 
+            "lldp-remote-port-id" : [
+            {
+                "data" : "529"
+            }
+            ], 
+            "lldp-remote-port-description" : [
+            {
+                "data" : "xe-0/0/2"
+            }
+            ], 
+            "lldp-remote-system-name" : [
+            {
+                "data" : "vmx3_re.englab.juniper.net"
+            }
+            ], 
+            "lldp-system-description" : [
+            {
+                "lldp-remote-system-description" : [
+                {
+                    "data" : "Juniper Networks, Inc. mx960 internet router, kernel JUNOS 23.4R2-S4.11, Build date: 2025-03-14 21:12:19 UTC Copyright (c) 1996-2025 Juniper Networks, Inc."
+                }
+                ]
+            }
+            ], 
+            "lldp-remote-system-capabilities-supported" : [
+            {
+                "data" : "Bridge Router "
+            }
+            ], 
+            "lldp-remote-system-capabilities-enabled" : [
+            {
+                "data" : "Bridge Router "
+            }
+            ], 
+            "lldp-remote-management-address-type" : [
+            {
+                "data" : "IPv4(1)"
+            }
+            ], 
+            "lldp-remote-management-address" : [
+            {
+                "data" : "10.207.210.150"
+            }
+            ], 
+            "lldp-remote-management-address-port-id" : [
+            {
+                "data" : "1"
+            }
+            ], 
+            "lldp-remote-management-address-interface-subtype" : [
+            {
+                "data" : "ifIndex(2)"
+            }
+            ], 
+            "lldp-remote-management-addr-oid" : [
+            {
+                "data" : "1.3.6.1.2.1.31.1.1.1.1.1."
+            }
+            ], 
+            "lldp-org-specific-tlv" : [
+            {
+                "lldp-remote-oui-802-3" : [
+                {
+                    "data" : "00120f"
+                }
+                ], 
+                "lldp-remote-subtype-mac" : [
+                {
+                    "data" : "1"
+                }
+                ], 
+                "lldp-remote-subtype-mac-autonegotiation" : [
+                {
+                    "data" : "not supported, disabled (0x0)"
+                }
+                ], 
+                "lldp-remote-subtype-mac-pmd" : [
+                {
+                    "data" : "0"
+                }
+                ], 
+                "lldp-remote-subtype-mac-mau" : [
+                {
+                    "data" : "0"
+                }
+                ], 
+                "lldp-remote-index" : [
+                {
+                    "data" : "1"
+                }
+                ]
+            }, 
+            {
+                "lldp-remote-oui-802-3" : [
+                {
+                    "data" : "00120f"
+                }
+                ], 
+                "lldp-remote-subtype-lag" : [
+                {
+                    "data" : "3"
+                }
+                ], 
+                "lldp-remote-subtype-lag-status" : [
+                {
+                    "data" : "supported, enabled (0x3)"
+                }
+                ], 
+                "lldp-remote-subtype-lag-portid" : [
+                {
+                    "data" : "551"
+                }
+                ], 
+                "lldp-remote-index" : [
+                {
+                    "data" : "2"
+                }
+                ]
+            }, 
+            {
+                "lldp-remote-oui-802-3" : [
+                {
+                    "data" : "00120f"
+                }
+                ], 
+                "lldp-remote-subtype-mtu" : [
+                {
+                    "data" : "4"
+                }
+                ], 
+                "lldp-remote-subtype-mtu-size" : [
+                {
+                    "data" : "1522"
+                }
+                ], 
+                "lldp-remote-index" : [
+                {
+                    "data" : "3"
+                }
+                ]
+            }, 
+            {
+                "lldp-remote-oui-802-1" : [
+                {
+                    "data" : "0080c2"
+                }
+                ], 
+                "lldp-remote-subtype" : [
+                {
+                    "data" : "(7)"
+                }
+                ], 
+                "lldp-remote-value" : [
+                {
+                    "data" : "0700000227 "
+                }
+                ], 
+                "lldp-remote-index" : [
+                {
+                    "data" : "4"
+                }
+                ]
+            }, 
+            {
+                "lldp-remote-oui-juniper" : [
+                {
+                    "data" : "009069"
+                }
+                ], 
+                "lldp-remote-subtype-serial" : [
+                {
+                    "data" : "1"
+                }
+                ], 
+                "lldp-remote-subtype-slot-serial" : [
+                {
+                    "data" : "VM68B43B1404"
+                }
+                ], 
+                "lldp-remote-index" : [
+                {
+                    "data" : "5"
+                }
+                ]
+            }, 
+            {
+                "lldp-remote-oui-juniper" : [
+                {
+                    "data" : "009069"
+                }
+                ], 
+                "lldp-remote-subtype" : [
+                {
+                    "data" : "(12)"
+                }
+                ], 
+                "lldp-remote-value" : [
+                {
+                    "data" : "0000006500000000"
+                }
+                ], 
+                "lldp-remote-index" : [
+                {
+                    "data" : "6"
+                }
+                ]
+            }, 
+            {
+                "lldp-remote-oui-802-1" : [
+                {
+                    "data" : "0080c2"
+                }
+                ], 
+                "lldp-remote-subtype-vlan" : [
+                {
+                    "data" : "3"
+                }
+                ], 
+                "lldp-remote-subtype-vlan-id" : [
+                {
+                    "data" : "1001"
+                }
+                ], 
+                "lldp-remote-subtype-vlan-name" : [
+                {
+                    "data" : "vlan-1001"
+                }
+                ], 
+                "lldp-remote-index" : [
+                {
+                    "data" : "7"
+                }
+                ]
+            }, 
+            {
+                "lldp-remote-oui-802-1" : [
+                {
+                    "data" : "0080c2"
+                }
+                ], 
+                "lldp-remote-subtype-vlan" : [
+                {
+                    "data" : "3"
+                }
+                ], 
+                "lldp-remote-subtype-vlan-id" : [
+                {
+                    "data" : "1002"
+                }
+                ], 
+                "lldp-remote-subtype-vlan-name" : [
+                {
+                    "data" : "vlan-1002"
+                }
+                ], 
+                "lldp-remote-index" : [
+                {
+                    "data" : "8"
+                }
+                ]
+            }, 
+            {
+                "lldp-remote-oui-802-1" : [
+                {
+                    "data" : "0080c2"
+                }
+                ], 
+                "lldp-remote-subtype-vlan" : [
+                {
+                    "data" : "3"
+                }
+                ], 
+                "lldp-remote-subtype-vlan-id" : [
+                {
+                    "data" : "123"
+                }
+                ], 
+                "lldp-remote-subtype-vlan-name" : [
+                {
+                    "data" : "vlan-123"
+                }
+                ], 
+                "lldp-remote-index" : [
+                {
+                    "data" : "9"
+                }
+                ]
+            }
+            ]
+        }
+        ]
+    }
+    ]
+}

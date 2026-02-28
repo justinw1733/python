@@ -1,0 +1,379 @@
+## Last commit: 2025-09-02 19:41:43 CST by root
+version 20200609.165031.6_builder.r1115480;
+groups {
+    member0 {
+        system {
+            host-name vqfx1_re;
+            backup-router 10.207.255.254;
+        }
+        interfaces {
+            em0 {
+                unit 0 {
+                    family inet {
+                        address 10.207.217.196/18;
+                    }
+                }
+            }
+            em1 {
+                unit 0 {
+                    family inet {
+                        address 169.254.0.2/24;
+                    }
+                }
+            }
+        }
+    }
+    global {
+        system {
+            root-authentication {
+                encrypted-password "$1$ZUlES4dp$OUwWo1g7cLoV/aMWpHUnC/"; ## SECRET-DATA
+            }
+            login {
+                class wheel {
+                    permissions snmp;
+                }
+                user regress {
+                    uid 928;
+                    class superuser;
+                    shell csh;
+                    authentication {
+                        encrypted-password "$1$kPU..$w.4FGRAGanJ8U4Yq6sbj7."; ## SECRET-DATA
+                    }
+                }
+                user remote {
+                    uid 2000;
+                    class super-user;
+                }
+                user labroot {
+                    uid 2001;
+                    class super-user;
+                    authentication {
+                        encrypted-password "$1$1M37h3gJ$FAb2dB9J1rVnuB2zUBu.g0"; ## SECRET-DATA
+                    }
+                }
+            }
+            services {
+                finger;
+                ftp;
+                rlogin;
+                ssh {
+                    root-login allow;
+                }
+                telnet;
+                xnm-clear-text;
+            }
+            domain-name englab.juniper.net;
+            domain-search [ englab.juniper.net juniper.net jnpr.net ];
+            time-zone Asia/Shanghai;
+            debugger-on-break;
+            dump-on-panic;
+            authentication-order [ password radius ];
+            name-server {
+                10.221.192.40;
+                10.221.192.41;
+                10.221.192.42;
+                10.49.32.95;
+                10.49.32.97;
+                10.48.144.9;
+                10.48.144.10;
+            }
+            radius-server {
+                10.48.144.16 secret "$9$iHfz9Cu0BRQznCApIRSreWxNVw2GjkKM4JGimP"; ## SECRET-DATA
+                10.48.144.17 secret "$9$iHfz9Cu0BRQznCApIRSreWxNVw2GjkKM4JGimP"; ## SECRET-DATA
+            }
+            syslog {
+                file messages {
+                    any notice;
+                }
+            }
+            ntp {
+                server 172.29.131.60;
+                server 172.29.135.60;
+            }
+        }
+        routing-options {
+            static {
+                route 172.16.0.0/12 {
+                    next-hop 10.207.255.254;
+                    retain;
+                    no-readvertise;
+                }
+                route 10.0.0.0/8 {
+                    next-hop 10.207.255.254;
+                    retain;
+                    no-readvertise;
+                }
+            }
+        }
+    }
+}
+apply-groups [ global member0 ];
+system {
+    host-name vqfx-mclag-topo-location-switch1;
+    services;
+    ports {
+        console log-out-on-disconnect;
+    }
+}
+chassis {
+    aggregated-devices {
+        ethernet {
+            device-count 10;
+        }
+    }
+}
+interfaces {
+    xe-0/0/0 {
+        disable;
+    }
+    xe-0/0/1 {
+        ether-options {
+            802.3ad ae0;
+        }
+    }
+    xe-0/0/2 {
+        ether-options {
+            802.3ad ae0;
+        }
+    }
+    xe-0/0/3 {
+        ether-options {
+            802.3ad ae1;
+        }
+    }
+    xe-0/0/4 {
+        ether-options {
+            802.3ad ae2;
+        }
+    }
+    xe-0/0/5 {
+        ether-options {
+            802.3ad ae3;
+        }
+    }
+    xe-0/0/6 {
+        unit 0 {
+            family inet {
+                address 10.0.11.1/30;
+            }
+        }
+    }
+    xe-0/0/7 {
+        unit 0 {
+            family inet {
+                address 10.0.15.1/30;
+            }
+        }
+    }
+    ae0 {
+        aggregated-ether-options {
+            lacp {
+                active;
+            }
+        }
+        unit 0 {
+            family ethernet-switching {
+                interface-mode trunk;
+                vlan {
+                    members [ v1001 v123 v78 v1002 ];
+                }
+            }
+        }
+    }
+    ae1 {
+        aggregated-ether-options {
+            lacp {
+                active;
+                system-id 00:00:01:00:00:01;
+                admin-key 1;
+            }
+            mc-ae {
+                mc-ae-id 1;
+                redundancy-group 1;
+                chassis-id 0;
+                mode active-active;
+                status-control active;
+                init-delay-time 240;
+            }
+        }
+        unit 0 {
+            family ethernet-switching {
+                interface-mode trunk;
+                vlan {
+                    members [ v1001 v1002 ];
+                }
+            }
+        }
+    }
+    ae2 {
+        aggregated-ether-options {
+            lacp {
+                active;
+                system-id 00:00:01:00:00:02;
+                admin-key 2;
+            }
+            mc-ae {
+                mc-ae-id 2;
+                redundancy-group 1;
+                chassis-id 0;
+                mode active-active;
+                status-control active;
+                init-delay-time 240;
+            }
+        }
+        unit 0 {
+            family ethernet-switching {
+                interface-mode trunk;
+                vlan {
+                    members [ v1001 v1002 ];
+                }
+            }
+        }
+    }
+    ae3 {
+        aggregated-ether-options {
+            lacp {
+                active;
+                system-id 00:00:01:00:00:03;
+                admin-key 3;
+            }
+            mc-ae {
+                mc-ae-id 3;
+                redundancy-group 1;
+                chassis-id 0;
+                mode active-active;
+                status-control active;
+                init-delay-time 240;
+            }
+        }
+        unit 0 {
+            family ethernet-switching {
+                interface-mode trunk;
+                vlan {
+                    members [ v1001 v123 v1002 ];
+                }
+            }
+        }
+    }
+    irb {
+        unit 78 {
+            family inet {
+                address 10.0.78.1/30;
+            }
+        }
+        unit 123 {
+            family inet {
+                address 10.0.123.1/24 {
+                    arp 10.0.123.2 l2-interface ae0.0 mac 02:05:86:71:a7:00;
+                    arp 10.0.123.3 l2-interface ae3.0 mac 2c:6b:f5:04:84:c0;
+                }
+            }
+        }
+    }
+    lo0 {
+        unit 0 {
+            family inet {
+                address 1.1.1.1/32;
+            }
+        }
+    }
+}
+multi-chassis {
+    multi-chassis-protection 10.0.78.2 {
+        interface ae0;
+    }
+}
+policy-options {
+    policy-statement bgp-out {
+        term 1 {
+            from {
+                route-filter 10.10.1.0/24 exact;
+            }
+            then accept;
+        }
+        term last {
+            then reject;
+        }
+    }
+    policy-statement lb {
+        term 1 {
+            then {
+                load-balance per-packet;
+            }
+        }
+    }
+}
+routing-options {
+    static {
+        route 10.10.1.0/24 {
+            qualified-next-hop 10.0.123.3;
+        }
+    }
+    forwarding-table {
+        export lb;
+    }
+    router-id 1.1.1.1;
+    autonomous-system 65012;
+}
+protocols {
+    iccp {
+        local-ip-addr 10.0.78.1;
+        peer 10.0.78.2 {
+            session-establishment-hold-time 340;
+            redundancy-group-id-list 1;
+            backup-liveness-detection {
+                backup-peer-ip 10.207.255.254;
+            }
+            liveness-detection {
+                minimum-receive-interval 1000;
+                transmit-interval {
+                    minimum-interval 1000;
+                }
+            }
+        }
+    }
+    bgp {
+        group ebgp {
+            export bgp-out;
+            multipath;
+            neighbor 10.0.11.2 {
+                peer-as 65034;
+            }
+            neighbor 10.0.15.2 {
+                peer-as 65034;
+            }
+        }
+    }
+    l2-learning {
+        ##
+        ## Warning: statement ignored: unsupported platform (vqfx-10000)
+        ##
+        no-mclag-ifa-sync;
+    }
+    lldp {
+        port-id-subtype interface-name;
+        interface all;
+        interface em0 {
+            disable;
+        }
+    }
+}
+switch-options {
+    service-id 1;
+}
+vlans {
+    v1001 {
+        vlan-id 1001;
+    }
+    v1002 {
+        vlan-id 1002;
+    }
+    v123 {
+        vlan-id 123;
+        l3-interface irb.123;
+    }
+    v78 {
+        vlan-id 78;
+        l3-interface irb.78;
+    }
+}

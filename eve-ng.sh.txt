@@ -1,0 +1,26 @@
+#!/bin/bash
+# EVE-NG 镜像上传和权限修复脚本
+# 使用方法：
+# 1. 将镜像文件上传到 /opt/unetlab/addons/qemu/<image-folder>/
+# 2. 执行此脚本
+
+# 设置镜像目录（根据设备类型修改）
+IMAGE_DIR="/opt/unetlab/addons/qemu/cisco-iosv"
+
+# 检查目录是否存在
+if [ ! -d "$IMAGE_DIR" ]; then
+    echo "目录不存在，正在创建：$IMAGE_DIR"
+    mkdir -p "$IMAGE_DIR"
+fi
+
+# 检查是否有镜像文件
+if [ ! -f "$IMAGE_DIR/hda.qcow2" ]; then
+    echo "警告：未找到 hda.qcow2，请确认已上传镜像文件"
+else
+    echo "镜像文件已存在：$IMAGE_DIR/hda.qcow2"
+fi
+
+# 修复权限
+echo "正在修复权限..."
+/opt/unetlab/wrappers/unl_wrapper -a fixpermissions
+

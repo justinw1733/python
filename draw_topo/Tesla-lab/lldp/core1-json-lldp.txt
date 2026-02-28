@@ -1,0 +1,137 @@
+{
+    "lldp-neighbors-information" : [
+    {
+        "attributes" : {"junos:style" : "brief"}, 
+        "lldp-neighbor-information" : [
+        {
+            "lldp-local-port-id" : [
+            {
+                "data" : "em0"
+            }
+            ], 
+            "lldp-local-parent-interface-name" : [
+            {
+                "data" : "-"
+            }
+            ], 
+            "lldp-remote-chassis-id-subtype" : [
+            {
+                "data" : "Mac address"
+            }
+            ], 
+            "lldp-remote-chassis-id" : [
+            {
+                "data" : "1c:9c:8c:67:f2:60"
+            }
+            ], 
+            "lldp-remote-port-description" : [
+            {
+                "data" : "ge-2/0/4"
+            }
+            ], 
+            "lldp-remote-system-name" : [
+            {
+                "data" : "pvg03-lab-biw1-sw.tesla.com"
+            }
+            ]
+        }, 
+        {
+            "lldp-local-port-id" : [
+            {
+                "data" : "et-0/0/0"
+            }
+            ], 
+            "lldp-local-parent-interface-name" : [
+            {
+                "data" : "ae0"
+            }
+            ], 
+            "lldp-remote-chassis-id-subtype" : [
+            {
+                "data" : "Mac address"
+            }
+            ], 
+            "lldp-remote-chassis-id" : [
+            {
+                "data" : "40:7f:5f:a4:fc:5e"
+            }
+            ], 
+            "lldp-remote-port-description" : [
+            {
+                "data" : "et-0/0/0"
+            }
+            ], 
+            "lldp-remote-system-name" : [
+            {
+                "data" : "core2.teslamotors.com"
+            }
+            ]
+        }, 
+        {
+            "lldp-local-port-id" : [
+            {
+                "data" : "et-0/0/30"
+            }
+            ], 
+            "lldp-local-parent-interface-name" : [
+            {
+                "data" : "-"
+            }
+            ], 
+            "lldp-remote-chassis-id-subtype" : [
+            {
+                "data" : "Mac address"
+            }
+            ], 
+            "lldp-remote-chassis-id" : [
+            {
+                "data" : "9c:5a:80:82:62:00"
+            }
+            ], 
+            "lldp-remote-port-description" : [
+            {
+                "data" : "et-0/0/54"
+            }
+            ], 
+            "lldp-remote-system-name" : [
+            {
+                "data" : "qfx-1"
+            }
+            ]
+        }, 
+        {
+            "lldp-local-port-id" : [
+            {
+                "data" : "et-0/0/31"
+            }
+            ], 
+            "lldp-local-parent-interface-name" : [
+            {
+                "data" : "-"
+            }
+            ], 
+            "lldp-remote-chassis-id-subtype" : [
+            {
+                "data" : "Mac address"
+            }
+            ], 
+            "lldp-remote-chassis-id" : [
+            {
+                "data" : "9c:5a:80:82:7b:00"
+            }
+            ], 
+            "lldp-remote-port-description" : [
+            {
+                "data" : "et-0/0/54"
+            }
+            ], 
+            "lldp-remote-system-name" : [
+            {
+                "data" : "qfx-2"
+            }
+            ]
+        }
+        ]
+    }
+    ]
+}

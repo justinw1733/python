@@ -773,6 +773,33 @@ class TopologyBuilder:
         
         return unit_blocks
     
+    def _normalize_remote_system_name(self, remote_system: str) -> str:
+        """Normalize remote system name from LLDP to match known device names when possible"""
+        if not remote_system:
+            return remote_system
+        name = remote_system.strip()
+        
+        # First try exact and case-insensitive match
+        for dev_name in self.devices.keys():
+            if name == dev_name or name.lower() == dev_name.lower():
+                return dev_name
+        
+        # Handle names that are the base hostname plus a suffix, e.g. ex4400-1 -> ex4400
+        for dev_name in self.devices.keys():
+            if name.lower().startswith(dev_name.lower() + "-"):
+                return dev_name
+        
+        # Handle patterns like qfx-1 -> qfx1
+        m = re.match(r'^([a-zA-Z]+)-(\d+)$', name)
+        if m:
+            candidate = f"{m.group(1)}{m.group(2)}"
+            for dev_name in self.devices.keys():
+                if candidate.lower() == dev_name.lower():
+                    return dev_name
+        
+        # Fallback to original name if no mapping found
+        return name
+    
     def parse_lldp_file(self, lldp_file: Path) -> List[Tuple[str, str, str]]:
         """Parse LLDP neighbor information from JSON file"""
         neighbors = []
@@ -833,6 +860,8 @@ class TopologyBuilder:
                                         remote_system = remote_system.split('.')[0]
                                     # Only strip whitespace
                                     remote_system = remote_system.strip()
+                                    # Normalize to match known device names when possible
+                                    remote_system = self._normalize_remote_system_name(remote_system)
                                     
                                     if local_interface and remote_port:
                                         neighbors.append((local_interface, remote_system, remote_port))
@@ -857,6 +886,8 @@ class TopologyBuilder:
                                     remote_system = remote_system.split('.')[0]
                                 # Only strip whitespace
                                 remote_system = remote_system.strip()
+                                # Normalize to match known device names when possible
+                                remote_system = self._normalize_remote_system_name(remote_system)
                                 
                                 if local_interface and remote_port:
                                     neighbors.append((local_interface, remote_system, remote_port))
@@ -909,6 +940,15 @@ class TopologyBuilder:
                 if device_name in self.devices:
                     self.devices[device_name].neighbors.extend(neighbors)
         
+        # Create placeholder devices for LLDP-only neighbors (e.g., PA-2) that have no configs
+        for device_name, device in list(self.devices.items()):
+            for _local_port, remote_device, _remote_port in device.neighbors:
+                if remote_device and remote_device not in self.devices:
+                    placeholder = DeviceInfo(remote_device)
+                    placeholder.device_type = 'unknown'
+                    placeholder.display_name = remote_device
+                    self.devices[remote_device] = placeholder
+        
         # Build connection map
         # Create a map of all connections to avoid duplicates
         connection_map = defaultdict(list)
@@ -921,10 +961,17 @@ class TopologyBuilder:
         
         # Add connections to the topology
         # Only add each connection once
+        # Management interfaces like em0 are used for out-of-band access and are not drawn in the topology
+        mgmt_interfaces = {"em0", "me0", "fxp0", "vme0"}
         for connection_key, connection_list in connection_map.items():
             # Use the first connection in the list
             dev1, port1, dev2, port2 = connection_list[0]
-            self.connections.add((dev1, port1, dev2, port2))
+            # Skip connections that involve management interfaces
+            if port1 in mgmt_interfaces or port2 in mgmt_interfaces:
+                continue
+            # Only keep connections where both endpoints have configuration data or placeholders
+            if dev1 in self.devices and dev2 in self.devices:
+                self.connections.add((dev1, port1, dev2, port2))
     
     def calculate_layout(self):
         """Calculate device positions for layout with improved connection routing and alignment"""
@@ -1194,6 +1241,10 @@ class DrawIOGenerator:
         target_label_id = str(self.next_id)
         self.next_id += 1
         
+        # Compute vertical offset for labels to avoid overlap when multiple connections exist
+        # Keep all labels above the line with a fixed small offset
+        label_offset_y = -6
+        
         # Build source label content
         source_label_parts = [port1]  # Start with interface name only
         
@@ -1202,7 +1253,7 @@ class DrawIOGenerator:
         
         source_label = f'''<mxCell id="{source_label_id}" value="{source_label_content}" style="edgeLabel;html=1;align=center;verticalAlign=middle;resizable=0;points=[];fontSize=9;fontColor=#666666;fillColor=none;labelBackgroundColor=none;" vertex="1" connectable="0" parent="{edge_id}">
             <mxGeometry x="-0.9" relative="1" as="geometry">
-                <mxPoint x="0" y="-4" as="offset"/>
+                <mxPoint x="0" y="{label_offset_y}" as="offset"/>
             </mxGeometry>
         </mxCell>'''
         
@@ -1214,7 +1265,7 @@ class DrawIOGenerator:
     
         target_label = f'''<mxCell id="{target_label_id}" value="{target_label_content}" style="edgeLabel;html=1;align=center;verticalAlign=middle;resizable=0;points=[];fontSize=9;fontColor=#666666;fillColor=none;labelBackgroundColor=none;" vertex="1" connectable="0" parent="{edge_id}">
             <mxGeometry x="0.9" relative="1" as="geometry">
-                <mxPoint x="0" y="-4" as="offset"/>
+                <mxPoint x="0" y="{label_offset_y}" as="offset"/>
             </mxGeometry>
         </mxCell>'''
     
@@ -1263,8 +1314,7 @@ class DrawIOGenerator:
         
         if horizontal_separation and y_overlap > 0:
             # Horizontal separation with Y overlap
-            # Use horizontal shortest straight line (left device right edge ↔ right device left edge)
-            # Distribute points evenly in the Y overlap area
+            # Use horizontal straight lines and spread multiple connections in a compact band
             
             # Determine which device is on the left
             if dev1_left < dev2_left:
@@ -1278,39 +1328,35 @@ class DrawIOGenerator:
                 exit_device = "dev2"
                 entry_device = "dev1"
             
-            # Calculate Y overlap range
+            # Calculate vertical overlap in absolute coordinates
             y_overlap_start = max(dev1_top, dev2_top)
             y_overlap_end = min(dev1_bottom, dev2_bottom)
+            overlap_height = max(0, y_overlap_end - y_overlap_start)
             
-            # Normalize Y positions to device coordinates (0-1)
-            y_overlap_start_norm1 = (y_overlap_start - dev1_top) / device_height
-            y_overlap_end_norm1 = (y_overlap_end - dev1_top) / device_height
-            y_overlap_start_norm2 = (y_overlap_start - dev2_top) / device_height
-            y_overlap_end_norm2 = (y_overlap_end - dev2_top) / device_height
-            
-            if total_connections == 1:
-                # Single connection at midpoint of overlap
-                exit_y = (y_overlap_start_norm1 + y_overlap_end_norm1) / 2
-                entry_y = (y_overlap_start_norm2 + y_overlap_end_norm2) / 2
+            if total_connections <= 1 or overlap_height <= 0:
+                # Single connection or no effective range: place at center of overlap
+                y_abs = y_overlap_start + overlap_height / 2 if overlap_height > 0 else (dev1_top + dev1_bottom) / 2
+                exit_y = (y_abs - dev1_top) / device_height
+                entry_y = (y_abs - dev2_top) / device_height
                 exit_x = left_device_right_edge
                 entry_x = right_device_left_edge
             else:
-                # Multiple connections, distribute evenly in overlap area
-                # Create evenly spaced points in the overlap region, but reduce spacing by 3/4
-                # Move the distribution range toward the center by 3/8 on each side
-                range_reduction = 0.375  # Reduce range by 3/8 on each side (total 3/4 reduction)
-                reduced_y_start_norm1 = y_overlap_start_norm1 + (y_overlap_end_norm1 - y_overlap_start_norm1) * range_reduction
-                reduced_y_end_norm1 = y_overlap_end_norm1 - (y_overlap_end_norm1 - y_overlap_start_norm1) * range_reduction
-                reduced_y_start_norm2 = y_overlap_start_norm2 + (y_overlap_end_norm2 - y_overlap_start_norm2) * range_reduction
-                reduced_y_end_norm2 = y_overlap_end_norm2 - (y_overlap_end_norm2 - y_overlap_start_norm2) * range_reduction
+                # Multiple connections: distribute within a central band (e.g., 60% of overlap)
+                band_ratio = 0.6
+                inner_height = overlap_height * band_ratio
+                margin = (overlap_height - inner_height) / 2
+                band_start = y_overlap_start + margin
+                band_end = band_start + inner_height
                 
-                y_positions_norm1 = linspace(reduced_y_start_norm1, reduced_y_end_norm1, total_connections)
-                y_positions_norm2 = linspace(reduced_y_start_norm2, reduced_y_end_norm2, total_connections)
+                # Evenly space connections in this band
+                if total_connections == 1:
+                    y_abs = (band_start + band_end) / 2
+                else:
+                    step = inner_height / (total_connections - 1)
+                    y_abs = band_start + connection_index * step
                 
-                # Select position based on connection index
-                pos_idx = min(connection_index, len(y_positions_norm1) - 1)
-                exit_y = y_positions_norm1[pos_idx]
-                entry_y = y_positions_norm2[pos_idx]
+                exit_y = (y_abs - dev1_top) / device_height
+                entry_y = (y_abs - dev2_top) / device_height
                 exit_x = left_device_right_edge
                 entry_x = right_device_left_edge
                 
@@ -1830,20 +1876,74 @@ class DrawIOGenerator:
         for device_name in topology.devices.keys():
             self.get_device_id(device_name)
         
+        # Collect self-loop links (connections within the same device) so they can be shown in device labels
+        from collections import defaultdict as _dd_self
+        self_loop_links_for_labels = _dd_self(list)
+        for dev1, port1, dev2, port2 in topology.connections:
+            if dev1 == dev2:
+                self_loop_links_for_labels[dev1].append((port1, port2))
+        for device_name, links in self_loop_links_for_labels.items():
+            device = topology.devices.get(device_name)
+            if device is not None:
+                setattr(device, "self_loop_links", links)
+        
         # Generate device shapes
         shapes = []
         for device in topology.devices.values():
             shapes.append(self.create_device_shape(device))
+        
+        # Generate a single global text box for all local (self-loop) links
+        local_links_elements = []
+        local_link_lines = []
+        # Collect all self-loop connections from topology
+        for dev1, port1, dev2, port2 in sorted(topology.connections):
+            if dev1 == dev2:
+                local_link_lines.append(f"{dev1}:{port1} <-> {dev2}:{port2}")
+        if local_link_lines:
+            # Add header line
+            lines_with_header = ["Local links:"] + local_link_lines
+            max_len_links = max(len(line) for line in lines_with_header)
+            text_width = max(120, 6 * max_len_links)
+            text_height = 10 + len(lines_with_header) * 10
+            # Position the text box below all devices
+            max_y = 0
+            for device in topology.devices.values():
+                x_dev, y_dev = device.position
+                if y_dev > max_y:
+                    max_y = y_dev
+            x_text = 50
+            y_text = max_y + 120
+            element_id = str(self.next_id)
+            self.next_id += 1
+            link_text = "<br>".join(lines_with_header)
+            escaped_link_text = self._escape_xml(link_text)
+            element = f'''<mxCell id="{element_id}" value="{escaped_link_text}" style="text;html=1;align=left;verticalAlign=top;whiteSpace=wrap;rounded=0;fontSize=8;fontColor=#000000;spacing=0;spacingTop=0;spacingBottom=0;spacingLeft=0;spacingRight=0;" vertex="1" parent="1">
+                <mxGeometry x="{x_text}" y="{y_text}" width="{text_width}" height="{text_height}" as="geometry"/>
+              </mxCell>'''
+            local_links_elements.append(element)
         
         # Generate connection lines with simplified label positioning
         lines = []
         
         # Group connections by device pairs to handle multiple connections properly
         device_pair_connections = defaultdict(list)
+        # Track self-loop connections (connections within the same device)
+        self_loop_links = defaultdict(list)
         for dev1, port1, dev2, port2 in topology.connections:
+            # Skip self-loop connections when drawing lines; we'll render them as text separately
+            if dev1 == dev2:
+                self_loop_links[dev1].append((port1, port2))
+                continue
             # Create consistent device pair key (alphabetically sorted)
             device_pair = tuple(sorted([dev1, dev2]))
             device_pair_connections[device_pair].append((dev1, port1, dev2, port2))
+        
+        # Attach self-loop information to devices so it can be used for labels/text if needed
+        for device_name, links in self_loop_links.items():
+            device = topology.devices.get(device_name)
+            if device is not None:
+                # Store as list of (local_port, remote_port)
+                setattr(device, "self_loop_links", links)
         
         # Generate connections with simplified label positioning
         for device_pair, connections in device_pair_connections.items():
@@ -1879,6 +1979,7 @@ class DrawIOGenerator:
         <mxCell id="1" parent="0"/>
         {''.join(shapes)}
         {''.join(lines)}
+        {''.join(local_links_elements)}
         {''.join(ip_elements)}
         {''.join(layer2_elements)}
       </root>
@@ -1917,24 +2018,47 @@ class DrawIOGenerator:
         label_content = "&lt;br&gt;".join(label_lines)
         
         # Choose shape and color based on device type
-        if device.device_type == 'router':
+        # Special styling for PA-1/PA-2 devices (ellipse, light purple)
+        if display_name.upper() in {"PA-1", "PA-2"} or device.name.upper() in {"PA-1", "PA-2"}:
             shape = 'ellipse;html=1'
-            fillColor = '#dae8fc'
-            strokeColor = '#6c8ebf'
-        elif device.device_type == 'switch':
-            shape = 'rounded=1;whiteSpace=wrap;html=1'
-            fillColor = '#d5e8d4'
-            strokeColor = '#82b366'
+            fillColor = '#e1bee7'
+            strokeColor = '#ab47bc'
         else:
-            shape = 'whiteSpace=wrap;html=1'
-            fillColor = '#fff2cc'
-            strokeColor = '#d6b656'
+            # Treat core1/core2 as switch-style (rectangular) even if classified as router
+            effective_type = device.device_type
+            if re.match(r'^core\d*$', device.name):
+                effective_type = 'switch'
+            
+            if effective_type == 'router':
+                shape = 'ellipse;html=1'
+                fillColor = '#dae8fc'
+                strokeColor = '#6c8ebf'
+            elif effective_type == 'switch':
+                shape = 'rounded=1;whiteSpace=wrap;html=1'
+                fillColor = '#d5e8d4'
+                strokeColor = '#82b366'
+            else:
+                shape = 'whiteSpace=wrap;html=1'
+                fillColor = '#fff2cc'
+                strokeColor = '#d6b656'
     
-        width = 80
-        height = 60 + (len(label_lines) - 1) * 15  # Increase height for additional lines
+        # Dynamically adjust width based on longest label line to avoid wrapping within a line
+        if label_lines:
+            max_line_len = max(len(line) for line in label_lines)
+        else:
+            max_line_len = len(display_name)
+        # Reduce base width and padding to shrink overall node size while still avoiding wraps
+        base_width = 70
+        # Approximate 6 pixels per character; keep slightly conservative to avoid line breaks
+        width = max(base_width, 6 * max_line_len)
     
-        # Use smaller font size for hostname to make room for router ID
-        device_xml = f'''<mxCell id="{device_id}" value="{label_content}" style="{shape};fillColor={fillColor};strokeColor={strokeColor};fontStyle=1;fontSize=10;whiteSpace=wrap;html=1;align=center;" vertex="1" parent="1">
+        # Adjust height for additional lines with tighter vertical spacing
+        base_height = 30
+        extra_lines = max(len(label_lines) - 1, 0)
+        height = base_height + extra_lines * 10
+    
+        # Use normal font (not bold) and smaller size with zero padding to minimize node size
+        device_xml = f'''<mxCell id="{device_id}" value="{label_content}" style="{shape};fillColor={fillColor};strokeColor={strokeColor};fontStyle=0;fontSize=8;whiteSpace=wrap;html=1;align=center;spacing=0;spacingTop=0;spacingBottom=0;spacingLeft=0;spacingRight=0;" vertex="1" parent="1">
             <mxGeometry x="{x}" y="{y}" width="{width}" height="{height}" as="geometry"/>
           </mxCell>'''
         

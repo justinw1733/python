@@ -1,0 +1,1184 @@
+set groups default system time-zone Asia/Shanghai
+set groups default system management-instance
+set groups default system ntp server 203.107.6.88 routing-instance mgmt_junos
+set groups default interfaces em0 unit 0 family inet address 100.64.88.15/24
+set groups default routing-instances mgmt_junos routing-options static route 0.0.0.0/0 next-hop 100.64.88.1
+set apply-groups default
+set system host-name core1
+set system root-authentication encrypted-password "$6$x93fkMKB$Lc1g06G3lm2ARDuykIJzk631dB15WrTG6x0uvS.xCqccqiq6sarF09Wh4p6DTgzAyt6v/GHqLheyvrLwV3Y4T0"
+set system commit synchronize
+set system login idle-timeout 5
+set system login class TESLA-RO idle-timeout 5
+set system login class TESLA-RO login-alarms
+set system login class TESLA-RO login-tip
+set system login class TESLA-SU idle-timeout 5
+set system login class TESLA-SU login-alarms
+set system login class TESLA-SU login-tip
+set system login class TESLA-SU permissions all
+set system login class TESLA-SU permissions maintenance
+set system login user NW_Devices_Admin_Users uid 2000
+set system login user NW_Devices_Admin_Users class TESLA-SU
+set system login user NW_Devices_Limited_Users uid 2006
+set system login user NW_Devices_Limited_Users class TESLA-RO
+set system login user NW_Devices_Operator uid 2003
+set system login user NW_Devices_Operator class TESLA-SU
+set system login user labroot uid 2002
+set system login user labroot class super-user
+set system login user labroot authentication encrypted-password "$6$wEqtEinr$sJNJDKU70r0gLBKX6u8VV0RCENBFJWM298SHKofG3A7gUKdadvii36dM4IIsYOM/.94PzqmuTjUyzKfFhanBE/"
+set system login announcement "    ############     ##########     ##########     ##             ##########\n     ##########       ########      #########      ##              ########\n         ##                         ##             ##\n         ##                         ##             ##\n         ##          ##########     ##########     ##             ##########\n         ##           ########      ##########     ##             ##########\n         ##                                 ##     ##             ##      ##\n         ##                                 ##     ##             ##      ##\n         ##          ##########      #########     ##########     ##      ##\n         ##           ########      ##########     #########      ##      ##\n\n########################################################################################\n# This computer system is the property of Tesla Motors and may be accessed only        #\n# by authorized users. Tesla Motors, reserves the right to monitor any activity or     #\n# communication on this system and retrieve any information stored within this system. # \n# By accessing and using this system, you are consenting to such monitoring and        #\n# information retrieval for law enforcement and other purposes.                        #\n# Unauthorized use of this system is strictly prohibited and may be subject to         #\n# disciplinary actions including criminal prosecution.                                 #\n########################################################################################\n\n\n "
+set system services ssh root-login allow
+set system services ssh max-sessions-per-connection 32
+set system services ssh sftp-server
+set system services ssh connection-limit 5
+set system services ftp
+set system services netconf ssh
+set system auto-snapshot
+set system domain-name teslamotors.com
+set system domain-search teslamotors.com
+set system time-zone Asia/Shanghai
+set system location building sr01-b10-u38
+set system ports console log-out-on-disconnect
+set system name-server 10.120.20.53
+set system name-server 10.120.46.53
+set system syslog user * any emergency
+set system syslog host logcollector.tesla.cn any any
+set system syslog host logcollector.tesla.cn port 4200
+set system syslog host logcollector.tesla.cn source-address 10.120.3.30
+set system syslog file default-log-messages any any
+set system syslog file default-log-messages match "(requested 'commit' operation)|(copying configuration to juniper.save)|(commit complete)|ifAdminStatus|(FRU power)|(FRU removal)|(FRU insertion)|(link UP)|transitioned|Transferred|transfer-file|(license add)|(license delete)|(package -X update)|(package -X delete)|(FRU Online)|(FRU Offline)|(plugged in)|(unplugged)|QF_NODE|QF_SERVER_NODE_GROUP|QF_INTERCONNECT|QF_DIRECTOR|QF_NETWORK_NODE_GROUP|(Master Unchanged, Members Changed)|(Master Changed, Members Changed)|(Master Detected, Members Changed)|(vc add)|(vc delete)|(Master detected)|(Master changed)|(Backup detected)|(Backup changed)|(interface vcp-)"
+set system syslog file default-log-messages structured-data
+set system syslog file interactive-commands interactive-commands any
+set system syslog file messages any notice
+set system syslog file messages authorization info
+set system processes dhcp-service traceoptions file dhcp_logfile
+set system processes dhcp-service traceoptions file size 10m
+set system processes dhcp-service traceoptions level all
+set system processes dhcp-service traceoptions flag all
+set system ddos-protection protocols resolve aggregate bandwidth 1000
+set system ddos-protection protocols resolve aggregate burst 750
+set system ddos-protection protocols arp aggregate bandwidth 1000
+set system ddos-protection protocols arp aggregate burst 750
+set system ddos-protection protocols firewall-host aggregate bandwidth 10000
+set system ddos-protection protocols firewall-host aggregate burst 2000
+set system ddos-protection protocols ipmcast-miss aggregate bandwidth 3000
+set system ddos-protection protocols ipmcast-miss aggregate burst 1000
+set system ntp boot-server 10.120.20.251
+set system ntp server 10.120.20.251
+set system ntp server 10.120.20.252
+set system ntp source-address 10.120.3.30
+set chassis aggregated-devices ethernet device-count 50
+set interfaces et-0/0/0 ether-options 802.3ad ae0
+set interfaces et-0/0/1 description pvg03-ssi-sr01-b02.et-0/0/50
+set interfaces et-0/0/1 ether-options 802.3ad ae11
+set interfaces et-0/0/2 description pvg03-ssi-sr01-b12.et-0/0/50
+set interfaces et-0/0/2 ether-options 802.3ad ae12
+set interfaces et-0/0/3 description pvg03-ssi-sr01-b13.et-0/0/50
+set interfaces et-0/0/3 ether-options 802.3ad ae13
+set interfaces et-0/0/4 description pvg03-ssi-sr01-d04.et-0/0/50
+set interfaces et-0/0/4 ether-options 802.3ad ae14
+set interfaces et-0/0/5 description pvg03-ssi-sr01-d05.et-0/0/50
+set interfaces et-0/0/5 ether-options 802.3ad ae15
+set interfaces et-0/0/6 ether-options 802.3ad ae16
+set interfaces et-0/0/7 ether-options 802.3ad ae17
+set interfaces et-0/0/8 unit 0 family ethernet-switching
+set interfaces et-0/0/8:0 unit 0 family inet dhcp vendor-id Juniper-qfx5120-32c
+set interfaces et-0/0/8:1 unit 0 family inet dhcp vendor-id Juniper-qfx5120-32c
+set interfaces et-0/0/8:2 unit 0 family inet dhcp vendor-id Juniper-qfx5120-32c
+set interfaces et-0/0/8:3 unit 0 family inet dhcp vendor-id Juniper-qfx5120-32c
+set interfaces et-0/0/9 unit 0 family inet dhcp vendor-id Juniper-qfx5120-32c
+set interfaces et-0/0/9:0 unit 0 family inet dhcp vendor-id Juniper-qfx5120-32c
+set interfaces et-0/0/9:1 unit 0 family inet dhcp vendor-id Juniper-qfx5120-32c
+set interfaces et-0/0/9:2 unit 0 family inet dhcp vendor-id Juniper-qfx5120-32c
+set interfaces et-0/0/9:3 unit 0 family inet dhcp vendor-id Juniper-qfx5120-32c
+set interfaces et-0/0/10 ether-options 802.3ad ae18
+set interfaces et-0/0/11 ether-options 802.3ad ae19
+set interfaces et-0/0/12 description pvg03-fsi-sr01-node0-new.23
+set interfaces et-0/0/12 ether-options 802.3ad ae1
+set interfaces et-0/0/13 description pvg03-fsi-sr01-node1-new.23
+set interfaces et-0/0/13 ether-options 802.3ad ae2
+set interfaces et-0/0/14 ether-options 802.3ad ae20
+set interfaces et-0/0/15 ether-options 802.3ad ae20
+set interfaces et-0/0/16 description pvg03-F5-1
+set interfaces et-0/0/16 ether-options 802.3ad ae3
+set interfaces et-0/0/17 description pvg03-F5-1
+set interfaces et-0/0/17 ether-options 802.3ad ae3
+set interfaces et-0/0/18 description pvg03-fsi-sr01-node0.23
+set interfaces et-0/0/18 ether-options 802.3ad ae1
+set interfaces et-0/0/19 description pvg03-fsi-sr01-node1.23
+set interfaces et-0/0/19 ether-options 802.3ad ae2
+set interfaces et-0/0/20 description pvg03-ssi-sr01-cb3-e08.et-0/0/30
+set interfaces et-0/0/20 ether-options 802.3ad ae30
+set interfaces et-0/0/20:0 unit 0 family inet dhcp vendor-id Juniper-qfx5120-32c
+set interfaces xe-0/0/20:0 unit 0 family inet dhcp vendor-id Juniper-qfx5120-32c
+set interfaces et-0/0/20:1 unit 0 family inet dhcp vendor-id Juniper-qfx5120-32c
+set interfaces xe-0/0/20:1 unit 0 family inet dhcp vendor-id Juniper-qfx5120-32c
+set interfaces et-0/0/20:2 unit 0 family inet dhcp vendor-id Juniper-qfx5120-32c
+set interfaces xe-0/0/20:2 unit 0 family inet dhcp vendor-id Juniper-qfx5120-32c
+set interfaces et-0/0/20:3 unit 0 family inet dhcp vendor-id Juniper-qfx5120-32c
+set interfaces xe-0/0/20:3 unit 0 family inet dhcp vendor-id Juniper-qfx5120-32c
+set interfaces et-0/0/21 description pvg03-ssi-sr01-cb3-f10.et-0/0/30
+set interfaces et-0/0/21 ether-options 802.3ad ae31
+set interfaces et-0/0/21:0 unit 0 family inet dhcp vendor-id Juniper-qfx5120-32c
+set interfaces xe-0/0/21:0 unit 0 family inet dhcp vendor-id Juniper-qfx5120-32c
+set interfaces et-0/0/21:1 unit 0 family inet dhcp vendor-id Juniper-qfx5120-32c
+set interfaces xe-0/0/21:1 unit 0 family inet dhcp vendor-id Juniper-qfx5120-32c
+set interfaces et-0/0/21:2 unit 0 family inet dhcp vendor-id Juniper-qfx5120-32c
+set interfaces xe-0/0/21:2 unit 0 family inet dhcp vendor-id Juniper-qfx5120-32c
+set interfaces et-0/0/21:3 unit 0 family inet dhcp vendor-id Juniper-qfx5120-32c
+set interfaces xe-0/0/21:3 unit 0 family inet dhcp vendor-id Juniper-qfx5120-32c
+set interfaces et-0/0/22 description pvg03-ssi-sr01-b05.et-0/0/52
+set interfaces et-0/0/22 ether-options 802.3ad ae32
+set interfaces et-0/0/22:0 unit 0 family inet dhcp vendor-id Juniper-qfx5120-32c
+set interfaces xe-0/0/22:0 unit 0 family inet dhcp vendor-id Juniper-qfx5120-32c
+set interfaces et-0/0/22:1 unit 0 family inet dhcp vendor-id Juniper-qfx5120-32c
+set interfaces xe-0/0/22:1 unit 0 family inet dhcp vendor-id Juniper-qfx5120-32c
+set interfaces et-0/0/22:2 unit 0 family inet dhcp vendor-id Juniper-qfx5120-32c
+set interfaces xe-0/0/22:2 unit 0 family inet dhcp vendor-id Juniper-qfx5120-32c
+set interfaces et-0/0/22:3 unit 0 family inet dhcp vendor-id Juniper-qfx5120-32c
+set interfaces xe-0/0/22:3 unit 0 family inet dhcp vendor-id Juniper-qfx5120-32c
+set interfaces et-0/0/23 description To_pvg03-spi-core-sr01-a1012-1.et-0/0/12
+set interfaces et-0/0/23 unit 0 family inet address 10.120.9.1/31
+set interfaces et-0/0/23:0 unit 0 family inet dhcp vendor-id Juniper-qfx5120-32c
+set interfaces xe-0/0/23:0 unit 0 family inet dhcp vendor-id Juniper-qfx5120-32c
+set interfaces et-0/0/23:1 unit 0 family inet dhcp vendor-id Juniper-qfx5120-32c
+set interfaces xe-0/0/23:1 unit 0 family inet dhcp vendor-id Juniper-qfx5120-32c
+set interfaces et-0/0/23:2 unit 0 family inet dhcp vendor-id Juniper-qfx5120-32c
+set interfaces xe-0/0/23:2 unit 0 family inet dhcp vendor-id Juniper-qfx5120-32c
+set interfaces et-0/0/23:3 unit 0 family inet dhcp vendor-id Juniper-qfx5120-32c
+set interfaces xe-0/0/23:3 unit 0 family inet dhcp vendor-id Juniper-qfx5120-32c
+set interfaces et-0/0/24 description To_pvg03-spi-core-sr02-b2009-2.et-0/0/12
+set interfaces et-0/0/24 unit 0 family inet address 10.120.9.3/31
+set interfaces et-0/0/24:0 unit 0 family inet dhcp vendor-id Juniper-qfx5120-32c
+set interfaces et-0/0/24:1 unit 0 family inet dhcp vendor-id Juniper-qfx5120-32c
+set interfaces et-0/0/24:2 unit 0 family inet dhcp vendor-id Juniper-qfx5120-32c
+set interfaces et-0/0/24:3 unit 0 family inet dhcp vendor-id Juniper-qfx5120-32c
+set interfaces et-0/0/25 description To_pvg03-spi-core-sr01-b1012-3.et-0/0/12
+set interfaces et-0/0/25 unit 0 family inet address 10.120.9.5/31
+set interfaces et-0/0/25:0 unit 0 family inet dhcp vendor-id Juniper-qfx5120-32c
+set interfaces et-0/0/25:1 unit 0 family inet dhcp vendor-id Juniper-qfx5120-32c
+set interfaces et-0/0/25:2 unit 0 family inet dhcp vendor-id Juniper-qfx5120-32c
+set interfaces et-0/0/25:3 unit 0 family inet dhcp vendor-id Juniper-qfx5120-32c
+set interfaces et-0/0/26 description To_pvg03-spi-core-sr02-a2009-4.et-0/0/12
+set interfaces et-0/0/26 unit 0 family inet address 10.120.9.7/31
+set interfaces et-0/0/26:0 unit 0 family inet dhcp vendor-id Juniper-qfx5120-32c
+set interfaces et-0/0/26:1 unit 0 family inet dhcp vendor-id Juniper-qfx5120-32c
+set interfaces et-0/0/26:2 unit 0 family inet dhcp vendor-id Juniper-qfx5120-32c
+set interfaces et-0/0/26:3 unit 0 family inet dhcp vendor-id Juniper-qfx5120-32c
+set interfaces et-0/0/27 unit 0 family ethernet-switching vlan members 261
+set interfaces et-0/0/27:0 unit 0 family inet dhcp vendor-id Juniper-qfx5120-32c
+set interfaces et-0/0/27:1 unit 0 family inet dhcp vendor-id Juniper-qfx5120-32c
+set interfaces et-0/0/27:2 unit 0 family inet dhcp vendor-id Juniper-qfx5120-32c
+set interfaces et-0/0/27:3 unit 0 family inet dhcp vendor-id Juniper-qfx5120-32c
+set interfaces et-0/0/28 ether-options 802.3ad ae10
+set interfaces et-0/0/30 description pvg03-spi-supercore1.et-0/0/37
+set interfaces et-0/0/30 unit 0 family inet address 10.120.3.17/31
+set interfaces et-0/0/31 description pvg03-spi-supercore2.et-0/0/37
+set interfaces et-0/0/31 unit 0 family inet address 10.120.3.21/31
+set interfaces xe-0/0/32 unit 0 family inet dhcp vendor-id Juniper-qfx5120-32c
+set interfaces xe-0/0/33 unit 0 family inet dhcp vendor-id Juniper-qfx5120-32c
+set interfaces ae0 description pvg03-ssi-sr01-core2.ae0
+set interfaces ae0 aggregated-ether-options minimum-links 1
+set interfaces ae0 unit 0 family ethernet-switching interface-mode trunk
+set interfaces ae0 unit 0 family ethernet-switching vlan members all
+set interfaces ae1 description pvg03-fsi-sr01-node0.ae1
+set interfaces ae1 aggregated-ether-options lacp active
+set interfaces ae1 aggregated-ether-options lacp system-id 00:00:00:00:00:01
+set interfaces ae1 aggregated-ether-options lacp admin-key 1
+set interfaces ae1 aggregated-ether-options mc-ae mc-ae-id 1
+set interfaces ae1 aggregated-ether-options mc-ae redundancy-group 1
+set interfaces ae1 aggregated-ether-options mc-ae chassis-id 0
+set interfaces ae1 aggregated-ether-options mc-ae mode active-active
+set interfaces ae1 aggregated-ether-options mc-ae status-control active
+set interfaces ae1 aggregated-ether-options mc-ae init-delay-time 240
+set interfaces ae1 aggregated-ether-options mc-ae events iccp-peer-down prefer-status-control-active
+set interfaces ae1 unit 0 family ethernet-switching interface-mode trunk
+set interfaces ae1 unit 0 family ethernet-switching vlan members v100
+set interfaces ae1 unit 0 family ethernet-switching vlan members v200
+set interfaces ae1 unit 0 family ethernet-switching vlan members v201
+set interfaces ae1 unit 0 family ethernet-switching vlan members v202
+set interfaces ae1 unit 0 family ethernet-switching vlan members v204
+set interfaces ae1 unit 0 family ethernet-switching vlan members v205
+set interfaces ae1 unit 0 family ethernet-switching vlan members v10
+set interfaces ae1 unit 0 family ethernet-switching vlan members v82
+set interfaces ae1 unit 0 family ethernet-switching vlan members v206
+set interfaces ae1 unit 0 family ethernet-switching vlan members v207
+set interfaces ae1 unit 0 family ethernet-switching vlan members v253
+set interfaces ae1 unit 0 family ethernet-switching vlan members v203
+set interfaces ae1 unit 0 family ethernet-switching vlan members v208
+set interfaces ae1 unit 0 family ethernet-switching vlan members v209
+set interfaces ae1 unit 0 family ethernet-switching vlan members v210
+set interfaces ae1 unit 0 family ethernet-switching vlan members v211
+set interfaces ae1 unit 0 family ethernet-switching vlan members v212
+set interfaces ae1 unit 0 family ethernet-switching vlan members v240
+set interfaces ae1 unit 0 family ethernet-switching vlan members v241
+set interfaces ae1 unit 0 family ethernet-switching vlan members v242
+set interfaces ae1 unit 0 family ethernet-switching vlan members v243
+set interfaces ae1 unit 0 family ethernet-switching vlan members v244
+set interfaces ae1 unit 0 family ethernet-switching vlan members v245
+set interfaces ae1 unit 0 family ethernet-switching vlan members v246
+set interfaces ae1 unit 0 family ethernet-switching vlan members v247
+set interfaces ae1 unit 0 family ethernet-switching vlan members v248
+set interfaces ae1 unit 0 family ethernet-switching vlan members v213
+set interfaces ae1 unit 0 family ethernet-switching vlan members v214
+set interfaces ae1 unit 0 family ethernet-switching vlan members v215
+set interfaces ae1 unit 0 family ethernet-switching vlan members v216
+set interfaces ae1 unit 0 family ethernet-switching vlan members v217
+set interfaces ae1 unit 0 family ethernet-switching vlan members v218
+set interfaces ae1 unit 0 family ethernet-switching vlan members v255
+set interfaces ae1 unit 0 family ethernet-switching vlan members v256
+set interfaces ae1 unit 0 family ethernet-switching vlan members v257
+set interfaces ae1 unit 0 family ethernet-switching vlan members v236
+set interfaces ae1 unit 0 family ethernet-switching vlan members v237
+set interfaces ae1 unit 0 family ethernet-switching vlan members v238
+set interfaces ae1 unit 0 family ethernet-switching vlan members v239
+set interfaces ae1 unit 0 family ethernet-switching vlan members v221
+set interfaces ae1 unit 0 family ethernet-switching vlan members v220
+set interfaces ae1 unit 0 family ethernet-switching vlan members v258
+set interfaces ae2 description pvg03-fsi-sr01-node1.ae1
+set interfaces ae2 aggregated-ether-options lacp active
+set interfaces ae2 aggregated-ether-options lacp system-id 00:00:00:00:00:02
+set interfaces ae2 aggregated-ether-options lacp admin-key 2
+set interfaces ae2 aggregated-ether-options mc-ae mc-ae-id 2
+set interfaces ae2 aggregated-ether-options mc-ae redundancy-group 1
+set interfaces ae2 aggregated-ether-options mc-ae chassis-id 0
+set interfaces ae2 aggregated-ether-options mc-ae mode active-active
+set interfaces ae2 aggregated-ether-options mc-ae status-control active
+set interfaces ae2 aggregated-ether-options mc-ae init-delay-time 240
+set interfaces ae2 aggregated-ether-options mc-ae events iccp-peer-down prefer-status-control-active
+set interfaces ae2 unit 0 family ethernet-switching interface-mode trunk
+set interfaces ae2 unit 0 family ethernet-switching vlan members v100
+set interfaces ae2 unit 0 family ethernet-switching vlan members v200
+set interfaces ae2 unit 0 family ethernet-switching vlan members v201
+set interfaces ae2 unit 0 family ethernet-switching vlan members v202
+set interfaces ae2 unit 0 family ethernet-switching vlan members v204
+set interfaces ae2 unit 0 family ethernet-switching vlan members v205
+set interfaces ae2 unit 0 family ethernet-switching vlan members v10
+set interfaces ae2 unit 0 family ethernet-switching vlan members v82
+set interfaces ae2 unit 0 family ethernet-switching vlan members v206
+set interfaces ae2 unit 0 family ethernet-switching vlan members v207
+set interfaces ae2 unit 0 family ethernet-switching vlan members v253
+set interfaces ae2 unit 0 family ethernet-switching vlan members v203
+set interfaces ae2 unit 0 family ethernet-switching vlan members v208
+set interfaces ae2 unit 0 family ethernet-switching vlan members v209
+set interfaces ae2 unit 0 family ethernet-switching vlan members v210
+set interfaces ae2 unit 0 family ethernet-switching vlan members v211
+set interfaces ae2 unit 0 family ethernet-switching vlan members v212
+set interfaces ae2 unit 0 family ethernet-switching vlan members v240
+set interfaces ae2 unit 0 family ethernet-switching vlan members v241
+set interfaces ae2 unit 0 family ethernet-switching vlan members v242
+set interfaces ae2 unit 0 family ethernet-switching vlan members v243
+set interfaces ae2 unit 0 family ethernet-switching vlan members v244
+set interfaces ae2 unit 0 family ethernet-switching vlan members v245
+set interfaces ae2 unit 0 family ethernet-switching vlan members v246
+set interfaces ae2 unit 0 family ethernet-switching vlan members v247
+set interfaces ae2 unit 0 family ethernet-switching vlan members v248
+set interfaces ae2 unit 0 family ethernet-switching vlan members v213
+set interfaces ae2 unit 0 family ethernet-switching vlan members v214
+set interfaces ae2 unit 0 family ethernet-switching vlan members v215
+set interfaces ae2 unit 0 family ethernet-switching vlan members v216
+set interfaces ae2 unit 0 family ethernet-switching vlan members v217
+set interfaces ae2 unit 0 family ethernet-switching vlan members v218
+set interfaces ae2 unit 0 family ethernet-switching vlan members v255
+set interfaces ae2 unit 0 family ethernet-switching vlan members v256
+set interfaces ae2 unit 0 family ethernet-switching vlan members v257
+set interfaces ae2 unit 0 family ethernet-switching vlan members v236
+set interfaces ae2 unit 0 family ethernet-switching vlan members v237
+set interfaces ae2 unit 0 family ethernet-switching vlan members v238
+set interfaces ae2 unit 0 family ethernet-switching vlan members v239
+set interfaces ae2 unit 0 family ethernet-switching vlan members v221
+set interfaces ae2 unit 0 family ethernet-switching vlan members v220
+set interfaces ae2 unit 0 family ethernet-switching vlan members v258
+set interfaces ae3 description pvg03-F5-1
+set interfaces ae3 aggregated-ether-options lacp active
+set interfaces ae3 aggregated-ether-options lacp system-id 00:00:00:00:00:03
+set interfaces ae3 aggregated-ether-options lacp admin-key 3
+set interfaces ae3 aggregated-ether-options lacp force-up
+set interfaces ae3 unit 0 family ethernet-switching interface-mode trunk
+set interfaces ae3 unit 0 family ethernet-switching vlan members v250
+set interfaces ae3 unit 0 family ethernet-switching vlan members v251
+set interfaces ae3 unit 0 family ethernet-switching vlan members v252
+set interfaces ae3 unit 0 family ethernet-switching vlan members v253
+set interfaces ae3 unit 0 family ethernet-switching vlan members v100
+set interfaces ae10 description pvg03-ssi-sr01-b01.ae0
+set interfaces ae10 aggregated-ether-options minimum-links 1
+set interfaces ae10 aggregated-ether-options lacp active
+set interfaces ae10 aggregated-ether-options lacp system-id 00:00:00:00:00:0a
+set interfaces ae10 aggregated-ether-options lacp admin-key 10
+set interfaces ae10 aggregated-ether-options mc-ae mc-ae-id 10
+set interfaces ae10 aggregated-ether-options mc-ae redundancy-group 1
+set interfaces ae10 aggregated-ether-options mc-ae chassis-id 0
+set interfaces ae10 aggregated-ether-options mc-ae mode active-active
+set interfaces ae10 aggregated-ether-options mc-ae status-control active
+set interfaces ae10 aggregated-ether-options mc-ae init-delay-time 240
+set interfaces ae10 aggregated-ether-options mc-ae events iccp-peer-down prefer-status-control-active
+set interfaces ae10 unit 0 family ethernet-switching interface-mode trunk
+set interfaces ae10 unit 0 family ethernet-switching vlan members 255-257
+set interfaces ae10 unit 0 family ethernet-switching vlan members v100
+set interfaces ae10 unit 0 family ethernet-switching vlan members v200
+set interfaces ae10 unit 0 family ethernet-switching vlan members v201
+set interfaces ae10 unit 0 family ethernet-switching vlan members v202
+set interfaces ae10 unit 0 family ethernet-switching vlan members v203
+set interfaces ae10 unit 0 family ethernet-switching vlan members v204
+set interfaces ae10 unit 0 family ethernet-switching vlan members v205
+set interfaces ae10 unit 0 family ethernet-switching vlan members v82
+set interfaces ae10 unit 0 family ethernet-switching vlan members v206
+set interfaces ae10 unit 0 family ethernet-switching vlan members v207
+set interfaces ae10 unit 0 family ethernet-switching vlan members v208
+set interfaces ae10 unit 0 family ethernet-switching vlan members v209
+set interfaces ae10 unit 0 family ethernet-switching vlan members v210
+set interfaces ae10 unit 0 family ethernet-switching vlan members v211
+set interfaces ae10 unit 0 family ethernet-switching vlan members v212
+set interfaces ae10 unit 0 family ethernet-switching vlan members v240
+set interfaces ae10 unit 0 family ethernet-switching vlan members v241
+set interfaces ae10 unit 0 family ethernet-switching vlan members v242
+set interfaces ae10 unit 0 family ethernet-switching vlan members v243
+set interfaces ae10 unit 0 family ethernet-switching vlan members v244
+set interfaces ae10 unit 0 family ethernet-switching vlan members v245
+set interfaces ae10 unit 0 family ethernet-switching vlan members v246
+set interfaces ae10 unit 0 family ethernet-switching vlan members v247
+set interfaces ae10 unit 0 family ethernet-switching vlan members v248
+set interfaces ae10 unit 0 family ethernet-switching vlan members v213
+set interfaces ae10 unit 0 family ethernet-switching vlan members v214
+set interfaces ae10 unit 0 family ethernet-switching vlan members v215
+set interfaces ae10 unit 0 family ethernet-switching vlan members v216
+set interfaces ae10 unit 0 family ethernet-switching vlan members v217
+set interfaces ae10 unit 0 family ethernet-switching vlan members v218
+set interfaces ae10 unit 0 family ethernet-switching vlan members v236
+set interfaces ae10 unit 0 family ethernet-switching vlan members v237
+set interfaces ae10 unit 0 family ethernet-switching vlan members v238
+set interfaces ae10 unit 0 family ethernet-switching vlan members v239
+set interfaces ae10 unit 0 family ethernet-switching vlan members v259
+set interfaces ae10 unit 0 family ethernet-switching vlan members v260
+set interfaces ae10 unit 0 family ethernet-switching vlan members v261
+set interfaces ae10 unit 0 family ethernet-switching vlan members v262
+set interfaces ae10 unit 0 family ethernet-switching vlan members all
+set interfaces ae11 description pvg03-ssi-sr01-b02.ae0
+set interfaces ae11 aggregated-ether-options minimum-links 1
+set interfaces ae11 aggregated-ether-options lacp active
+set interfaces ae11 aggregated-ether-options lacp system-id 00:00:00:00:00:0b
+set interfaces ae11 aggregated-ether-options lacp admin-key 11
+set interfaces ae11 aggregated-ether-options mc-ae mc-ae-id 11
+set interfaces ae11 aggregated-ether-options mc-ae redundancy-group 1
+set interfaces ae11 aggregated-ether-options mc-ae chassis-id 0
+set interfaces ae11 aggregated-ether-options mc-ae mode active-active
+set interfaces ae11 aggregated-ether-options mc-ae status-control active
+set interfaces ae11 aggregated-ether-options mc-ae init-delay-time 240
+set interfaces ae11 aggregated-ether-options mc-ae events iccp-peer-down prefer-status-control-active
+set interfaces ae11 unit 0 family ethernet-switching interface-mode trunk
+set interfaces ae11 unit 0 family ethernet-switching vlan members 255-257
+set interfaces ae11 unit 0 family ethernet-switching vlan members v100
+set interfaces ae11 unit 0 family ethernet-switching vlan members v200
+set interfaces ae11 unit 0 family ethernet-switching vlan members v201
+set interfaces ae11 unit 0 family ethernet-switching vlan members v202
+set interfaces ae11 unit 0 family ethernet-switching vlan members v203
+set interfaces ae11 unit 0 family ethernet-switching vlan members v204
+set interfaces ae11 unit 0 family ethernet-switching vlan members v205
+set interfaces ae11 unit 0 family ethernet-switching vlan members v82
+set interfaces ae11 unit 0 family ethernet-switching vlan members v206
+set interfaces ae11 unit 0 family ethernet-switching vlan members v207
+set interfaces ae11 unit 0 family ethernet-switching vlan members v208
+set interfaces ae11 unit 0 family ethernet-switching vlan members v209
+set interfaces ae11 unit 0 family ethernet-switching vlan members v210
+set interfaces ae11 unit 0 family ethernet-switching vlan members v211
+set interfaces ae11 unit 0 family ethernet-switching vlan members v212
+set interfaces ae11 unit 0 family ethernet-switching vlan members v240
+set interfaces ae11 unit 0 family ethernet-switching vlan members v241
+set interfaces ae11 unit 0 family ethernet-switching vlan members v242
+set interfaces ae11 unit 0 family ethernet-switching vlan members v243
+set interfaces ae11 unit 0 family ethernet-switching vlan members v244
+set interfaces ae11 unit 0 family ethernet-switching vlan members v245
+set interfaces ae11 unit 0 family ethernet-switching vlan members v246
+set interfaces ae11 unit 0 family ethernet-switching vlan members v247
+set interfaces ae11 unit 0 family ethernet-switching vlan members v248
+set interfaces ae11 unit 0 family ethernet-switching vlan members v213
+set interfaces ae11 unit 0 family ethernet-switching vlan members v214
+set interfaces ae11 unit 0 family ethernet-switching vlan members v215
+set interfaces ae11 unit 0 family ethernet-switching vlan members v216
+set interfaces ae11 unit 0 family ethernet-switching vlan members v217
+set interfaces ae11 unit 0 family ethernet-switching vlan members v218
+set interfaces ae11 unit 0 family ethernet-switching vlan members v236
+set interfaces ae11 unit 0 family ethernet-switching vlan members v237
+set interfaces ae11 unit 0 family ethernet-switching vlan members v238
+set interfaces ae11 unit 0 family ethernet-switching vlan members v239
+set interfaces ae11 unit 0 family ethernet-switching vlan members v259
+set interfaces ae11 unit 0 family ethernet-switching vlan members v260
+set interfaces ae11 unit 0 family ethernet-switching vlan members v261
+set interfaces ae11 unit 0 family ethernet-switching vlan members v262
+set interfaces ae11 unit 0 family ethernet-switching vlan members all
+set interfaces ae12 description pvg03-ssi-sr01-b12.ae0
+set interfaces ae12 aggregated-ether-options minimum-links 1
+set interfaces ae12 aggregated-ether-options lacp active
+set interfaces ae12 aggregated-ether-options lacp system-id 00:00:00:00:00:0c
+set interfaces ae12 aggregated-ether-options lacp admin-key 12
+set interfaces ae12 aggregated-ether-options mc-ae mc-ae-id 12
+set interfaces ae12 aggregated-ether-options mc-ae redundancy-group 1
+set interfaces ae12 aggregated-ether-options mc-ae chassis-id 0
+set interfaces ae12 aggregated-ether-options mc-ae mode active-active
+set interfaces ae12 aggregated-ether-options mc-ae status-control active
+set interfaces ae12 aggregated-ether-options mc-ae init-delay-time 240
+set interfaces ae12 aggregated-ether-options mc-ae events iccp-peer-down prefer-status-control-active
+set interfaces ae12 unit 0 family ethernet-switching interface-mode trunk
+set interfaces ae12 unit 0 family ethernet-switching vlan members 255-257
+set interfaces ae12 unit 0 family ethernet-switching vlan members v100
+set interfaces ae12 unit 0 family ethernet-switching vlan members v200
+set interfaces ae12 unit 0 family ethernet-switching vlan members v201
+set interfaces ae12 unit 0 family ethernet-switching vlan members v202
+set interfaces ae12 unit 0 family ethernet-switching vlan members v203
+set interfaces ae12 unit 0 family ethernet-switching vlan members v204
+set interfaces ae12 unit 0 family ethernet-switching vlan members v205
+set interfaces ae12 unit 0 family ethernet-switching vlan members v82
+set interfaces ae12 unit 0 family ethernet-switching vlan members v206
+set interfaces ae12 unit 0 family ethernet-switching vlan members v207
+set interfaces ae12 unit 0 family ethernet-switching vlan members v208
+set interfaces ae12 unit 0 family ethernet-switching vlan members v209
+set interfaces ae12 unit 0 family ethernet-switching vlan members v210
+set interfaces ae12 unit 0 family ethernet-switching vlan members v211
+set interfaces ae12 unit 0 family ethernet-switching vlan members v212
+set interfaces ae12 unit 0 family ethernet-switching vlan members v240
+set interfaces ae12 unit 0 family ethernet-switching vlan members v241
+set interfaces ae12 unit 0 family ethernet-switching vlan members v242
+set interfaces ae12 unit 0 family ethernet-switching vlan members v243
+set interfaces ae12 unit 0 family ethernet-switching vlan members v244
+set interfaces ae12 unit 0 family ethernet-switching vlan members v245
+set interfaces ae12 unit 0 family ethernet-switching vlan members v246
+set interfaces ae12 unit 0 family ethernet-switching vlan members v247
+set interfaces ae12 unit 0 family ethernet-switching vlan members v248
+set interfaces ae12 unit 0 family ethernet-switching vlan members v213
+set interfaces ae12 unit 0 family ethernet-switching vlan members v214
+set interfaces ae12 unit 0 family ethernet-switching vlan members v215
+set interfaces ae12 unit 0 family ethernet-switching vlan members v216
+set interfaces ae12 unit 0 family ethernet-switching vlan members v217
+set interfaces ae12 unit 0 family ethernet-switching vlan members v218
+set interfaces ae12 unit 0 family ethernet-switching vlan members v236
+set interfaces ae12 unit 0 family ethernet-switching vlan members v237
+set interfaces ae12 unit 0 family ethernet-switching vlan members v238
+set interfaces ae12 unit 0 family ethernet-switching vlan members v239
+set interfaces ae12 unit 0 family ethernet-switching vlan members v259
+set interfaces ae12 unit 0 family ethernet-switching vlan members v260
+set interfaces ae12 unit 0 family ethernet-switching vlan members v261
+set interfaces ae12 unit 0 family ethernet-switching vlan members all
+set interfaces ae13 description pvg03-ssi-sr01-b13.ae0
+set interfaces ae13 aggregated-ether-options minimum-links 1
+set interfaces ae13 aggregated-ether-options lacp active
+set interfaces ae13 aggregated-ether-options lacp system-id 00:00:00:00:00:0d
+set interfaces ae13 aggregated-ether-options lacp admin-key 13
+set interfaces ae13 aggregated-ether-options mc-ae mc-ae-id 13
+set interfaces ae13 aggregated-ether-options mc-ae redundancy-group 1
+set interfaces ae13 aggregated-ether-options mc-ae chassis-id 0
+set interfaces ae13 aggregated-ether-options mc-ae mode active-active
+set interfaces ae13 aggregated-ether-options mc-ae status-control active
+set interfaces ae13 aggregated-ether-options mc-ae init-delay-time 240
+set interfaces ae13 aggregated-ether-options mc-ae events iccp-peer-down prefer-status-control-active
+set interfaces ae13 unit 0 family ethernet-switching interface-mode trunk
+set interfaces ae13 unit 0 family ethernet-switching vlan members 255-257
+set interfaces ae13 unit 0 family ethernet-switching vlan members v100
+set interfaces ae13 unit 0 family ethernet-switching vlan members v200
+set interfaces ae13 unit 0 family ethernet-switching vlan members v201
+set interfaces ae13 unit 0 family ethernet-switching vlan members v202
+set interfaces ae13 unit 0 family ethernet-switching vlan members v203
+set interfaces ae13 unit 0 family ethernet-switching vlan members v204
+set interfaces ae13 unit 0 family ethernet-switching vlan members v205
+set interfaces ae13 unit 0 family ethernet-switching vlan members v82
+set interfaces ae13 unit 0 family ethernet-switching vlan members v206
+set interfaces ae13 unit 0 family ethernet-switching vlan members v207
+set interfaces ae13 unit 0 family ethernet-switching vlan members v208
+set interfaces ae13 unit 0 family ethernet-switching vlan members v209
+set interfaces ae13 unit 0 family ethernet-switching vlan members v210
+set interfaces ae13 unit 0 family ethernet-switching vlan members v211
+set interfaces ae13 unit 0 family ethernet-switching vlan members v212
+set interfaces ae13 unit 0 family ethernet-switching vlan members v240
+set interfaces ae13 unit 0 family ethernet-switching vlan members v241
+set interfaces ae13 unit 0 family ethernet-switching vlan members v242
+set interfaces ae13 unit 0 family ethernet-switching vlan members v243
+set interfaces ae13 unit 0 family ethernet-switching vlan members v244
+set interfaces ae13 unit 0 family ethernet-switching vlan members v245
+set interfaces ae13 unit 0 family ethernet-switching vlan members v246
+set interfaces ae13 unit 0 family ethernet-switching vlan members v247
+set interfaces ae13 unit 0 family ethernet-switching vlan members v248
+set interfaces ae13 unit 0 family ethernet-switching vlan members v213
+set interfaces ae13 unit 0 family ethernet-switching vlan members v214
+set interfaces ae13 unit 0 family ethernet-switching vlan members v215
+set interfaces ae13 unit 0 family ethernet-switching vlan members v216
+set interfaces ae13 unit 0 family ethernet-switching vlan members v217
+set interfaces ae13 unit 0 family ethernet-switching vlan members v218
+set interfaces ae13 unit 0 family ethernet-switching vlan members v236
+set interfaces ae13 unit 0 family ethernet-switching vlan members v237
+set interfaces ae13 unit 0 family ethernet-switching vlan members v238
+set interfaces ae13 unit 0 family ethernet-switching vlan members v239
+set interfaces ae13 unit 0 family ethernet-switching vlan members v259
+set interfaces ae13 unit 0 family ethernet-switching vlan members v260
+set interfaces ae13 unit 0 family ethernet-switching vlan members v261
+set interfaces ae13 unit 0 family ethernet-switching vlan members all
+set interfaces ae14 description pvg03-ssi-sr01-d04.ae0
+set interfaces ae14 aggregated-ether-options minimum-links 1
+set interfaces ae14 aggregated-ether-options lacp active
+set interfaces ae14 aggregated-ether-options lacp system-id 00:00:00:00:00:0e
+set interfaces ae14 aggregated-ether-options lacp admin-key 14
+set interfaces ae14 aggregated-ether-options mc-ae mc-ae-id 14
+set interfaces ae14 aggregated-ether-options mc-ae redundancy-group 1
+set interfaces ae14 aggregated-ether-options mc-ae chassis-id 0
+set interfaces ae14 aggregated-ether-options mc-ae mode active-active
+set interfaces ae14 aggregated-ether-options mc-ae status-control active
+set interfaces ae14 aggregated-ether-options mc-ae init-delay-time 240
+set interfaces ae14 aggregated-ether-options mc-ae events iccp-peer-down prefer-status-control-active
+set interfaces ae14 unit 0 family ethernet-switching interface-mode trunk
+set interfaces ae14 unit 0 family ethernet-switching vlan members all
+set interfaces ae15 description pvg03-ssi-sr01-d05.ae0
+set interfaces ae15 aggregated-ether-options minimum-links 1
+set interfaces ae15 aggregated-ether-options lacp active
+set interfaces ae15 aggregated-ether-options lacp system-id 00:00:00:00:00:0f
+set interfaces ae15 aggregated-ether-options lacp admin-key 15
+set interfaces ae15 aggregated-ether-options mc-ae mc-ae-id 15
+set interfaces ae15 aggregated-ether-options mc-ae redundancy-group 1
+set interfaces ae15 aggregated-ether-options mc-ae chassis-id 0
+set interfaces ae15 aggregated-ether-options mc-ae mode active-active
+set interfaces ae15 aggregated-ether-options mc-ae status-control active
+set interfaces ae15 aggregated-ether-options mc-ae init-delay-time 240
+set interfaces ae15 aggregated-ether-options mc-ae events iccp-peer-down prefer-status-control-active
+set interfaces ae15 unit 0 family ethernet-switching interface-mode trunk
+set interfaces ae15 unit 0 family ethernet-switching vlan members all
+set interfaces ae15 unit 0 family ethernet-switching vlan members v262
+set interfaces ae16 description pvg03-ssi-sr01-c02.ae0
+set interfaces ae16 aggregated-ether-options minimum-links 1
+set interfaces ae16 aggregated-ether-options lacp active
+set interfaces ae16 aggregated-ether-options lacp system-id 00:00:00:00:00:10
+set interfaces ae16 aggregated-ether-options lacp admin-key 16
+set interfaces ae16 aggregated-ether-options mc-ae mc-ae-id 16
+set interfaces ae16 aggregated-ether-options mc-ae redundancy-group 1
+set interfaces ae16 aggregated-ether-options mc-ae chassis-id 0
+set interfaces ae16 aggregated-ether-options mc-ae mode active-active
+set interfaces ae16 aggregated-ether-options mc-ae status-control active
+set interfaces ae16 aggregated-ether-options mc-ae init-delay-time 240
+set interfaces ae16 aggregated-ether-options mc-ae events iccp-peer-down prefer-status-control-active
+set interfaces ae16 unit 0 family ethernet-switching interface-mode trunk
+set interfaces ae16 unit 0 family ethernet-switching vlan members all
+set interfaces ae17 description pvg03-ssi-sr01-c03.ae0
+set interfaces ae17 aggregated-ether-options minimum-links 1
+set interfaces ae17 aggregated-ether-options lacp active
+set interfaces ae17 aggregated-ether-options lacp system-id 00:00:00:00:00:11
+set interfaces ae17 aggregated-ether-options lacp admin-key 17
+set interfaces ae17 aggregated-ether-options mc-ae mc-ae-id 17
+set interfaces ae17 aggregated-ether-options mc-ae redundancy-group 1
+set interfaces ae17 aggregated-ether-options mc-ae chassis-id 0
+set interfaces ae17 aggregated-ether-options mc-ae mode active-active
+set interfaces ae17 aggregated-ether-options mc-ae status-control active
+set interfaces ae17 aggregated-ether-options mc-ae init-delay-time 240
+set interfaces ae17 aggregated-ether-options mc-ae events iccp-peer-down prefer-status-control-active
+set interfaces ae17 unit 0 family ethernet-switching interface-mode trunk
+set interfaces ae17 unit 0 family ethernet-switching vlan members all
+set interfaces ae18 description pvg03-ssi-sr01-b02.ae0
+set interfaces ae18 aggregated-ether-options minimum-links 1
+set interfaces ae18 aggregated-ether-options lacp active
+set interfaces ae18 aggregated-ether-options lacp system-id 00:00:00:00:00:12
+set interfaces ae18 aggregated-ether-options lacp admin-key 18
+set interfaces ae18 aggregated-ether-options mc-ae mc-ae-id 18
+set interfaces ae18 aggregated-ether-options mc-ae redundancy-group 1
+set interfaces ae18 aggregated-ether-options mc-ae chassis-id 0
+set interfaces ae18 aggregated-ether-options mc-ae mode active-active
+set interfaces ae18 aggregated-ether-options mc-ae status-control active
+set interfaces ae18 aggregated-ether-options mc-ae init-delay-time 240
+set interfaces ae18 aggregated-ether-options mc-ae events iccp-peer-down prefer-status-control-active
+set interfaces ae18 unit 0 family ethernet-switching interface-mode trunk
+set interfaces ae18 unit 0 family ethernet-switching vlan members v220
+set interfaces ae18 unit 0 family ethernet-switching vlan members all
+set interfaces ae18 unit 0 family ethernet-switching vlan members v262
+set interfaces ae19 description pvg03-ssi-sr01-b04.ae0
+set interfaces ae19 aggregated-ether-options minimum-links 1
+set interfaces ae19 aggregated-ether-options lacp active
+set interfaces ae19 aggregated-ether-options lacp system-id 00:00:00:00:00:13
+set interfaces ae19 aggregated-ether-options lacp admin-key 19
+set interfaces ae19 aggregated-ether-options mc-ae mc-ae-id 19
+set interfaces ae19 aggregated-ether-options mc-ae redundancy-group 1
+set interfaces ae19 aggregated-ether-options mc-ae chassis-id 0
+set interfaces ae19 aggregated-ether-options mc-ae mode active-active
+set interfaces ae19 aggregated-ether-options mc-ae status-control active
+set interfaces ae19 aggregated-ether-options mc-ae init-delay-time 240
+set interfaces ae19 aggregated-ether-options mc-ae events iccp-peer-down prefer-status-control-active
+set interfaces ae19 unit 0 family ethernet-switching interface-mode trunk
+set interfaces ae19 unit 0 family ethernet-switching vlan members v220
+set interfaces ae19 unit 0 family ethernet-switching vlan members all
+set interfaces ae19 unit 0 family ethernet-switching vlan members v262
+set interfaces ae20 description pvg03-ssi-sr01-b08-1_2.ae0
+set interfaces ae20 aggregated-ether-options minimum-links 1
+set interfaces ae20 aggregated-ether-options lacp active
+set interfaces ae20 aggregated-ether-options lacp system-id 00:00:00:00:00:14
+set interfaces ae20 aggregated-ether-options lacp admin-key 20
+set interfaces ae20 aggregated-ether-options mc-ae mc-ae-id 20
+set interfaces ae20 aggregated-ether-options mc-ae redundancy-group 1
+set interfaces ae20 aggregated-ether-options mc-ae chassis-id 0
+set interfaces ae20 aggregated-ether-options mc-ae mode active-active
+set interfaces ae20 aggregated-ether-options mc-ae status-control active
+set interfaces ae20 aggregated-ether-options mc-ae init-delay-time 240
+set interfaces ae20 aggregated-ether-options mc-ae events iccp-peer-down prefer-status-control-active
+set interfaces ae20 unit 0 family ethernet-switching interface-mode trunk
+set interfaces ae20 unit 0 family ethernet-switching vlan members v82
+set interfaces ae20 unit 0 family ethernet-switching vlan members v100
+set interfaces ae20 unit 0 family ethernet-switching vlan members v204
+set interfaces ae20 unit 0 family ethernet-switching vlan members v205
+set interfaces ae20 unit 0 family ethernet-switching vlan members v206
+set interfaces ae20 unit 0 family ethernet-switching vlan members v208
+set interfaces ae20 unit 0 family ethernet-switching vlan members v216
+set interfaces ae20 unit 0 family ethernet-switching vlan members v221
+set interfaces ae30 description pvg03-ssi-sr01-cb3-e08.ae0
+set interfaces ae30 aggregated-ether-options minimum-links 1
+set interfaces ae30 aggregated-ether-options lacp active
+set interfaces ae30 aggregated-ether-options lacp system-id 00:00:00:00:00:1e
+set interfaces ae30 aggregated-ether-options lacp admin-key 30
+set interfaces ae30 aggregated-ether-options mc-ae mc-ae-id 30
+set interfaces ae30 aggregated-ether-options mc-ae redundancy-group 1
+set interfaces ae30 aggregated-ether-options mc-ae chassis-id 0
+set interfaces ae30 aggregated-ether-options mc-ae mode active-active
+set interfaces ae30 aggregated-ether-options mc-ae status-control active
+set interfaces ae30 aggregated-ether-options mc-ae init-delay-time 240
+set interfaces ae30 aggregated-ether-options mc-ae events iccp-peer-down prefer-status-control-active
+set interfaces ae30 unit 0 family ethernet-switching interface-mode trunk
+set interfaces ae30 unit 0 family ethernet-switching vlan members all
+set interfaces ae31 description pvg03-ssi-sr01-cb3-f10.ae0
+set interfaces ae31 aggregated-ether-options minimum-links 1
+set interfaces ae31 aggregated-ether-options lacp active
+set interfaces ae31 aggregated-ether-options lacp system-id 00:00:00:00:00:1f
+set interfaces ae31 aggregated-ether-options lacp admin-key 31
+set interfaces ae31 aggregated-ether-options mc-ae mc-ae-id 31
+set interfaces ae31 aggregated-ether-options mc-ae redundancy-group 1
+set interfaces ae31 aggregated-ether-options mc-ae chassis-id 0
+set interfaces ae31 aggregated-ether-options mc-ae mode active-active
+set interfaces ae31 aggregated-ether-options mc-ae status-control active
+set interfaces ae31 aggregated-ether-options mc-ae init-delay-time 240
+set interfaces ae31 aggregated-ether-options mc-ae events iccp-peer-down prefer-status-control-active
+set interfaces ae31 unit 0 family ethernet-switching interface-mode trunk
+set interfaces ae31 unit 0 family ethernet-switching vlan members all
+set interfaces ae32 aggregated-ether-options minimum-links 1
+set interfaces ae32 aggregated-ether-options lacp active
+set interfaces ae32 aggregated-ether-options lacp system-id 00:00:00:00:00:20
+set interfaces ae32 aggregated-ether-options lacp admin-key 32
+set interfaces ae32 aggregated-ether-options mc-ae mc-ae-id 32
+set interfaces ae32 aggregated-ether-options mc-ae redundancy-group 1
+set interfaces ae32 aggregated-ether-options mc-ae chassis-id 0
+set interfaces ae32 aggregated-ether-options mc-ae mode active-active
+set interfaces ae32 aggregated-ether-options mc-ae status-control active
+set interfaces ae32 aggregated-ether-options mc-ae init-delay-time 240
+set interfaces ae32 unit 0 family ethernet-switching interface-mode trunk
+set interfaces ae32 unit 0 family ethernet-switching vlan members 255-257
+set interfaces ae32 unit 0 family ethernet-switching vlan members v100
+set interfaces ae32 unit 0 family ethernet-switching vlan members v200
+set interfaces ae32 unit 0 family ethernet-switching vlan members v201
+set interfaces ae32 unit 0 family ethernet-switching vlan members v202
+set interfaces ae32 unit 0 family ethernet-switching vlan members v203
+set interfaces ae32 unit 0 family ethernet-switching vlan members v204
+set interfaces ae32 unit 0 family ethernet-switching vlan members v205
+set interfaces ae32 unit 0 family ethernet-switching vlan members v82
+set interfaces ae32 unit 0 family ethernet-switching vlan members v206
+set interfaces ae32 unit 0 family ethernet-switching vlan members v207
+set interfaces ae32 unit 0 family ethernet-switching vlan members v208
+set interfaces ae32 unit 0 family ethernet-switching vlan members v209
+set interfaces ae32 unit 0 family ethernet-switching vlan members v210
+set interfaces ae32 unit 0 family ethernet-switching vlan members v211
+set interfaces ae32 unit 0 family ethernet-switching vlan members v212
+set interfaces ae32 unit 0 family ethernet-switching vlan members v240
+set interfaces ae32 unit 0 family ethernet-switching vlan members v241
+set interfaces ae32 unit 0 family ethernet-switching vlan members v242
+set interfaces ae32 unit 0 family ethernet-switching vlan members v243
+set interfaces ae32 unit 0 family ethernet-switching vlan members v244
+set interfaces ae32 unit 0 family ethernet-switching vlan members v245
+set interfaces ae32 unit 0 family ethernet-switching vlan members v246
+set interfaces ae32 unit 0 family ethernet-switching vlan members v247
+set interfaces ae32 unit 0 family ethernet-switching vlan members v248
+set interfaces ae32 unit 0 family ethernet-switching vlan members v213
+set interfaces ae32 unit 0 family ethernet-switching vlan members v214
+set interfaces ae32 unit 0 family ethernet-switching vlan members v215
+set interfaces ae32 unit 0 family ethernet-switching vlan members v216
+set interfaces ae32 unit 0 family ethernet-switching vlan members v217
+set interfaces ae32 unit 0 family ethernet-switching vlan members v218
+set interfaces ae32 unit 0 family ethernet-switching vlan members v236
+set interfaces ae32 unit 0 family ethernet-switching vlan members v237
+set interfaces ae32 unit 0 family ethernet-switching vlan members v238
+set interfaces ae32 unit 0 family ethernet-switching vlan members v239
+set interfaces ae32 unit 0 family ethernet-switching vlan members v259
+set interfaces ae32 unit 0 family ethernet-switching vlan members v260
+set interfaces ae32 unit 0 family ethernet-switching vlan members v261
+set interfaces ae32 unit 0 family ethernet-switching vlan members all
+set interfaces em0 unit 0 family inet address 10.120.0.229/24
+set interfaces irb arp-l2-validate
+set interfaces irb unit 0 family inet
+set interfaces irb unit 10 description v10
+set interfaces irb unit 10 bandwidth 40g
+set interfaces irb unit 10 family inet address 10.120.3.2/28 arp 10.120.3.3 l2-interface ae0.0
+set interfaces irb unit 10 family inet address 10.120.3.2/28 arp 10.120.3.3 mac 40:7f:5f:a4:fc:5e
+set interfaces irb unit 10 family inet address 10.120.3.2/28 vrrp-group 1 virtual-address 10.120.3.1
+set interfaces irb unit 10 family inet address 10.120.3.2/28 vrrp-group 1 priority 200
+set interfaces irb unit 10 family inet address 10.120.3.2/28 vrrp-group 1 accept-data
+set interfaces irb unit 10 family inet address 10.120.3.2/28 vrrp-group 1 authentication-type md5
+set interfaces irb unit 10 interface-state local-interface ae3.0
+set interfaces irb unit 11 description iccp-com
+set interfaces irb unit 11 family inet address 192.168.250.1/30 arp 192.168.250.2 l2-interface ae0.0
+set interfaces irb unit 11 family inet address 192.168.250.1/30 arp 192.168.250.2 mac 40:7f:5f:a4:fc:5e
+set interfaces irb unit 217 description 217.eaa-connector.srv01.server.pvg03
+set interfaces irb unit 217 family inet address 10.120.34.2/26 arp 10.120.34.3 l2-interface ae0.0
+set interfaces irb unit 217 family inet address 10.120.34.2/26 arp 10.120.34.3 mac 40:7f:5f:a4:fc:5e
+set interfaces irb unit 217 family inet address 10.120.34.2/26 vrrp-group 1 virtual-address 10.120.34.1
+set interfaces irb unit 217 family inet address 10.120.34.2/26 vrrp-group 1 priority 200
+set interfaces irb unit 217 family inet address 10.120.34.2/26 vrrp-group 1 accept-data
+set interfaces irb unit 217 family inet address 10.120.34.2/26 vrrp-group 1 authentication-type md5
+set interfaces irb unit 218 description 218.eaa-connector.srv01.server.pvg03
+set interfaces irb unit 218 family inet address 10.120.34.66/26 arp 10.120.34.67 l2-interface ae0.0
+set interfaces irb unit 218 family inet address 10.120.34.66/26 arp 10.120.34.67 mac 40:7f:5f:a4:fc:5e
+set interfaces irb unit 218 family inet address 10.120.34.66/26 vrrp-group 1 virtual-address 10.120.34.65
+set interfaces irb unit 218 family inet address 10.120.34.66/26 vrrp-group 1 priority 200
+set interfaces irb unit 218 family inet address 10.120.34.66/26 vrrp-group 1 accept-data
+set interfaces irb unit 218 family inet address 10.120.34.66/26 vrrp-group 1 authentication-type md5
+set interfaces irb unit 250 description f5-services-vip
+set interfaces irb unit 250 bandwidth 40g
+set interfaces irb unit 250 family inet address 10.120.20.2/24 arp 10.120.20.3 l2-interface ae0.0
+set interfaces irb unit 250 family inet address 10.120.20.2/24 arp 10.120.20.3 mac 40:7f:5f:a4:fc:5e
+set interfaces irb unit 250 family inet address 10.120.20.2/24 vrrp-group 1 virtual-address 10.120.20.1
+set interfaces irb unit 250 family inet address 10.120.20.2/24 vrrp-group 1 priority 200
+set interfaces irb unit 250 family inet address 10.120.20.2/24 vrrp-group 1 accept-data
+set interfaces irb unit 250 family inet address 10.120.20.2/24 vrrp-group 1 authentication-type md5
+set interfaces irb unit 251 description f5-services-vip
+set interfaces irb unit 251 bandwidth 40g
+set interfaces irb unit 251 family inet address 10.120.19.2/25 arp 10.120.19.3 l2-interface ae0.0
+set interfaces irb unit 251 family inet address 10.120.19.2/25 arp 10.120.19.3 mac 40:7f:5f:a4:fc:5e
+set interfaces irb unit 251 family inet address 10.120.19.2/25 vrrp-group 1 virtual-address 10.120.19.1
+set interfaces irb unit 251 family inet address 10.120.19.2/25 vrrp-group 1 priority 200
+set interfaces irb unit 251 family inet address 10.120.19.2/25 vrrp-group 1 accept-data
+set interfaces irb unit 251 family inet address 10.120.19.2/25 vrrp-group 1 authentication-type md5
+set interfaces irb unit 252 description f5-services-vip
+set interfaces irb unit 252 bandwidth 40g
+set interfaces irb unit 252 family inet address 10.120.19.130/25 arp 10.120.19.131 l2-interface ae0.0
+set interfaces irb unit 252 family inet address 10.120.19.130/25 arp 10.120.19.131 mac 40:7f:5f:a4:fc:5e
+set interfaces irb unit 252 family inet address 10.120.19.130/25 vrrp-group 1 virtual-address 10.120.19.129
+set interfaces irb unit 252 family inet address 10.120.19.130/25 vrrp-group 1 priority 200
+set interfaces irb unit 252 family inet address 10.120.19.130/25 vrrp-group 1 accept-data
+set interfaces irb unit 252 family inet address 10.120.19.130/25 vrrp-group 1 authentication-type md5
+set interfaces irb unit 259 description Data-protect
+set interfaces irb unit 259 bandwidth 40g
+set interfaces irb unit 259 family inet address 10.120.18.130/25 arp 10.120.18.131 l2-interface ae0.0
+set interfaces irb unit 259 family inet address 10.120.18.130/25 arp 10.120.18.131 mac 40:7f:5f:a4:fc:5e
+set interfaces irb unit 259 family inet address 10.120.18.130/25 vrrp-group 2 virtual-address 10.120.18.129
+set interfaces irb unit 259 family inet address 10.120.18.130/25 vrrp-group 2 priority 200
+set interfaces irb unit 259 family inet address 10.120.18.130/25 vrrp-group 2 accept-data
+set interfaces irb unit 259 family inet address 10.120.18.130/25 vrrp-group 2 authentication-type md5
+set interfaces irb unit 260 description F5-VE
+set interfaces irb unit 260 family inet address 10.120.22.98/27 arp 10.120.22.99 l2-interface ae0.0
+set interfaces irb unit 260 family inet address 10.120.22.98/27 arp 10.120.22.99 mac 40:7f:5f:a4:fc:5e
+set interfaces irb unit 260 family inet address 10.120.22.98/27 vrrp-group 3 virtual-address 10.120.22.97
+set interfaces irb unit 260 family inet address 10.120.22.98/27 vrrp-group 3 priority 200
+set interfaces irb unit 260 family inet address 10.120.22.98/27 vrrp-group 3 accept-data
+set interfaces irb unit 260 family inet address 10.120.22.98/27 vrrp-group 3 authentication-type md5
+set interfaces irb unit 261 description BI
+set interfaces irb unit 261 family inet address 10.120.22.130/25 arp 10.120.22.131 l2-interface ae0.0
+set interfaces irb unit 261 family inet address 10.120.22.130/25 arp 10.120.22.131 mac 40:7f:5f:a4:fc:5e
+set interfaces irb unit 261 family inet address 10.120.22.130/25 vrrp-group 4 virtual-address 10.120.22.129
+set interfaces irb unit 261 family inet address 10.120.22.130/25 vrrp-group 4 priority 100
+set interfaces irb unit 261 family inet address 10.120.22.130/25 vrrp-group 4 accept-data
+set interfaces irb unit 261 family inet address 10.120.22.130/25 vrrp-group 4 authentication-type md5
+set interfaces irb unit 262 description infra-stg
+set interfaces irb unit 262 family inet address 10.120.80.2/24 arp 10.120.80.3 l2-interface ae0.0
+set interfaces irb unit 262 family inet address 10.120.80.2/24 arp 10.120.80.3 mac 40:7f:5f:a4:fc:5e
+set interfaces irb unit 262 family inet address 10.120.80.2/24 vrrp-group 6 virtual-address 10.120.80.1
+set interfaces irb unit 262 family inet address 10.120.80.2/24 vrrp-group 6 priority 100
+set interfaces irb unit 262 family inet address 10.120.80.2/24 vrrp-group 6 accept-data
+set interfaces irb unit 262 family inet address 10.120.80.2/24 vrrp-group 6 authentication-type md5
+set interfaces lo0 unit 0 family inet address 10.120.3.30/32
+set interfaces vme unit 0 family inet
+set multi-chassis multi-chassis-protection 192.168.250.2 interface ae0
+set snmp location CN-PVG03
+set snmp contact Netops
+set snmp client-list approved-servers 10.109.1.0/24
+set snmp client-list approved-servers 10.33.148.179/32
+set snmp client-list approved-servers 10.120.22.0/27
+set snmp client-list approved-servers 10.112.86.158/32
+set snmp client-list approved-servers 10.112.22.201/32
+set snmp client-list approved-servers 10.112.86.32/32
+set snmp client-list approved-servers 10.120.70.13/32
+set snmp client-list approved-servers 10.116.84.37/32
+set snmp client-list approved-servers 10.116.84.68/32
+set snmp client-list approved-servers 10.120.41.128/32
+set snmp client-list approved-servers 10.120.22.15/32
+set snmp client-list approved-servers 10.112.31.209/32
+set snmp community t35la authorization read-only
+set snmp community t35la client-list-name approved-servers
+set snmp trap-options source-address 10.120.3.30
+set snmp trap-group monitor categories authentication
+set snmp trap-group monitor categories chassis
+set snmp trap-group monitor categories startup
+set snmp trap-group monitor categories vrrp-events
+set snmp trap-group monitor categories configuration
+set snmp trap-group monitor categories services
+set snmp trap-group monitor targets 10.109.52.8
+set snmp trap-group monitor targets 10.116.84.37
+set snmp trap-group monitor targets 10.116.84.68
+set snmp trap-group monitor targets 10.120.41.128
+set forwarding-options storm-control-profiles default all
+set forwarding-options analyzer F5-traffic input ingress interface ae18.0
+set forwarding-options analyzer F5-traffic input egress interface ae18.0
+set forwarding-options analyzer F5-traffic output interface et-0/0/8.0
+set policy-options prefix-list mcast-prefix 224.0.0.0/4
+set policy-options prefix-list mcast-prefix 255.255.255.255/32
+set policy-options prefix-list ntp-servers apply-path "system ntp server <*>"
+set policy-options prefix-list dns-servers apply-path "system name-server <*>"
+set policy-options prefix-list radius-servers apply-path "system radius-server <*>"
+set policy-options prefix-list approved-snmp apply-path "snmp client-list approved-servers <*>"
+set policy-options prefix-list ntp-source apply-path "system ntp source-address <*>"
+set policy-options policy-statement advertise_default_only term default from route-filter 0.0.0.0/0 exact
+set policy-options policy-statement advertise_default_only term default then accept
+set policy-options policy-statement advertise_default_only then reject
+set policy-options policy-statement advertise_direct term reject_iccp_seg from interface irb.11
+set policy-options policy-statement advertise_direct term reject_iccp_seg from interface em0.0
+set policy-options policy-statement advertise_direct term reject_iccp_seg then reject
+set policy-options policy-statement advertise_direct term direct from protocol direct
+set policy-options policy-statement advertise_direct term direct then accept
+set policy-options policy-statement nhs term reject_iccp_seg from interface irb.11
+set policy-options policy-statement nhs term reject_iccp_seg from interface em0.0
+set policy-options policy-statement nhs term reject_iccp_seg then reject
+set policy-options policy-statement nhs term direct from protocol direct
+set policy-options policy-statement nhs term direct then accept
+set policy-options policy-statement nhs term nexthop from route-type external
+set policy-options policy-statement nhs term nexthop then next-hop self
+set policy-options policy-statement pplb term 10 then load-balance per-packet
+set policy-options policy-statement reject term 10 then reject
+set class-of-service classifiers dscp CL-COS import default
+set class-of-service classifiers dscp CL-COS forwarding-class BEST-EFFORT loss-priority low code-points be
+set class-of-service classifiers dscp CL-COS forwarding-class MISSION-CRITICAL loss-priority low code-points af31
+set class-of-service classifiers dscp CL-COS forwarding-class NETWORK-CONTROL loss-priority low code-points nc1
+set class-of-service classifiers dscp CL-COS forwarding-class VIDEO loss-priority low code-points af41
+set class-of-service classifiers dscp CL-COS forwarding-class VOICE loss-priority low code-points ef
+set class-of-service forwarding-classes class BEST-EFFORT queue-num 0
+set class-of-service forwarding-classes class VOICE queue-num 5
+set class-of-service forwarding-classes class MISSION-CRITICAL queue-num 3
+set class-of-service forwarding-classes class NETWORK-CONTROL queue-num 7
+set class-of-service forwarding-classes class VIDEO queue-num 4
+set class-of-service forwarding-classes class mcast queue-num 8
+set class-of-service rewrite-rules dscp RR-COS forwarding-class BEST-EFFORT loss-priority low code-point be
+set class-of-service rewrite-rules dscp RR-COS forwarding-class MISSION-CRITICAL loss-priority low code-point af31
+set class-of-service rewrite-rules dscp RR-COS forwarding-class NETWORK-CONTROL loss-priority low code-point nc1
+set class-of-service rewrite-rules dscp RR-COS forwarding-class VIDEO loss-priority low code-point af41
+set class-of-service rewrite-rules dscp RR-COS forwarding-class VOICE loss-priority low code-point ef
+set class-of-service scheduler-maps SM-COS forwarding-class BEST-EFFORT scheduler SC-BEST-EFFORT
+set class-of-service scheduler-maps SM-COS forwarding-class MISSION-CRITICAL scheduler SC-MISSION-CRITICAL
+set class-of-service scheduler-maps SM-COS forwarding-class NETWORK-CONTROL scheduler SC-NETWORK-CONTROL
+set class-of-service scheduler-maps SM-COS forwarding-class VIDEO scheduler SC-VIDEO
+set class-of-service scheduler-maps SM-COS forwarding-class VOICE scheduler SC-VOICE
+set class-of-service scheduler-maps SM-COS forwarding-class mcast scheduler SC-MCAST
+set class-of-service scheduler-maps SM-LAN forwarding-class BEST-EFFORT scheduler SC-BEST-EFFORT
+set class-of-service scheduler-maps SM-LAN forwarding-class MISSION-CRITICAL scheduler SC-MISSION-CRITICAL
+set class-of-service scheduler-maps SM-LAN forwarding-class VIDEO scheduler SC-VIDEO
+set class-of-service scheduler-maps SM-LAN-HIGH forwarding-class NETWORK-CONTROL scheduler SC-NETWORK-CONTROL
+set class-of-service scheduler-maps SM-LAN-HIGH forwarding-class VOICE scheduler SC-VOICE
+set class-of-service scheduler-maps SM-MCAST forwarding-class mcast scheduler SC-MCAST
+set class-of-service schedulers SC-BEST-EFFORT transmit-rate percent 50
+set class-of-service schedulers SC-BEST-EFFORT buffer-size percent 30
+set class-of-service schedulers SC-BEST-EFFORT priority low
+set class-of-service schedulers SC-MCAST transmit-rate percent 10
+set class-of-service schedulers SC-MCAST buffer-size percent 10
+set class-of-service schedulers SC-MCAST priority low
+set class-of-service schedulers SC-MISSION-CRITICAL transmit-rate percent 20
+set class-of-service schedulers SC-MISSION-CRITICAL buffer-size percent 20
+set class-of-service schedulers SC-MISSION-CRITICAL priority low
+set class-of-service schedulers SC-NETWORK-CONTROL shaping-rate percent 50
+set class-of-service schedulers SC-NETWORK-CONTROL buffer-size percent 10
+set class-of-service schedulers SC-NETWORK-CONTROL priority strict-high
+set class-of-service schedulers SC-VIDEO transmit-rate percent 20
+set class-of-service schedulers SC-VIDEO buffer-size percent 20
+set class-of-service schedulers SC-VIDEO priority low
+set class-of-service schedulers SC-VOICE shaping-rate percent 50
+set class-of-service schedulers SC-VOICE buffer-size percent 10
+set class-of-service schedulers SC-VOICE priority low
+set firewall family inet filter protect-re term allow-ospf from protocol ospf
+set firewall family inet filter protect-re term allow-ospf then count allow-ospf
+set firewall family inet filter protect-re term allow-ospf then accept
+set firewall family inet filter protect-re term allow-bfd from protocol udp
+set firewall family inet filter protect-re term allow-bfd from destination-port 3784
+set firewall family inet filter protect-re term allow-bfd then count allow-bfd
+set firewall family inet filter protect-re term allow-bfd then accept
+set firewall family inet filter protect-re term allow-bgp from protocol tcp
+set firewall family inet filter protect-re term allow-bgp from destination-port bgp
+set firewall family inet filter protect-re term allow-bgp then count allow-bgp
+set firewall family inet filter protect-re term allow-bgp then accept
+set firewall family inet filter protect-re term allow-vrrp from destination-address 224.0.0.18/32
+set firewall family inet filter protect-re term allow-vrrp from protocol vrrp
+set firewall family inet filter protect-re term allow-vrrp from protocol ah
+set firewall family inet filter protect-re term allow-vrrp then count allow-vrrp
+set firewall family inet filter protect-re term allow-vrrp then accept
+set firewall family inet filter protect-re term allow-multihop-bfd from protocol udp
+set firewall family inet filter protect-re term allow-multihop-bfd from destination-port 4784
+set firewall family inet filter protect-re term allow-multihop-bfd then count allow-multihop-bfd
+set firewall family inet filter protect-re term allow-multihop-bfd then accept
+set firewall family inet filter protect-re term allow-iccp-bld from protocol udp
+set firewall family inet filter protect-re term allow-iccp-bld from destination-port 50015
+set firewall family inet filter protect-re term allow-iccp-bld then count allow-iccp-bld
+set firewall family inet filter protect-re term allow-iccp-bld then accept
+set firewall family inet filter protect-re term allow-iccp from protocol tcp
+set firewall family inet filter protect-re term allow-iccp from destination-port 33012
+set firewall family inet filter protect-re term allow-iccp then count allow-iccp
+set firewall family inet filter protect-re term allow-iccp then accept
+set firewall family inet filter protect-re term allow-ssh from destination-port ssh
+set firewall family inet filter protect-re term allow-ssh from destination-port 830
+set firewall family inet filter protect-re term allow-ssh then policer ssh-policer
+set firewall family inet filter protect-re term allow-ssh then count allow-ssh
+set firewall family inet filter protect-re term allow-ssh then accept
+set firewall family inet filter protect-re term allow-mcast from destination-prefix-list mcast-prefix
+set firewall family inet filter protect-re term allow-mcast then policer mcast-policer
+set firewall family inet filter protect-re term allow-mcast then count allow-mcast
+set firewall family inet filter protect-re term allow-mcast then accept
+set firewall family inet filter protect-re term allow-ntp from source-prefix-list ntp-servers
+set firewall family inet filter protect-re term allow-ntp from source-prefix-list ntp-source
+set firewall family inet filter protect-re term allow-ntp from protocol udp
+set firewall family inet filter protect-re term allow-ntp from destination-port ntp
+set firewall family inet filter protect-re term allow-ntp then policer ntp-policer
+set firewall family inet filter protect-re term allow-ntp then count allow-ntp
+set firewall family inet filter protect-re term allow-ntp then accept
+set firewall family inet filter protect-re term allow-dns from source-prefix-list dns-servers
+set firewall family inet filter protect-re term allow-dns from protocol tcp
+set firewall family inet filter protect-re term allow-dns from protocol udp
+set firewall family inet filter protect-re term allow-dns from source-port domain
+set firewall family inet filter protect-re term allow-dns then count allow-dns
+set firewall family inet filter protect-re term allow-dns then accept
+set firewall family inet filter protect-re term allow-dhcp from protocol udp
+set firewall family inet filter protect-re term allow-dhcp from source-port 67
+set firewall family inet filter protect-re term allow-dhcp from source-port 68
+set firewall family inet filter protect-re term allow-dhcp from destination-port 67
+set firewall family inet filter protect-re term allow-dhcp from destination-port 68
+set firewall family inet filter protect-re term allow-dhcp then count allow-dhcp
+set firewall family inet filter protect-re term allow-dhcp then accept
+set firewall family inet filter protect-re term allow-radius from source-prefix-list radius-servers
+set firewall family inet filter protect-re term allow-radius from source-port radius
+set firewall family inet filter protect-re term allow-radius then count allow-radius
+set firewall family inet filter protect-re term allow-radius then accept
+set firewall family inet filter protect-re term allow-igmp from protocol igmp
+set firewall family inet filter protect-re term allow-igmp then count allow-igmp
+set firewall family inet filter protect-re term allow-igmp then accept
+set firewall family inet filter protect-re term allow-snmp from source-prefix-list approved-snmp
+set firewall family inet filter protect-re term allow-snmp from protocol udp
+set firewall family inet filter protect-re term allow-snmp from destination-port snmp
+set firewall family inet filter protect-re term allow-snmp then policer snmp-policer
+set firewall family inet filter protect-re term allow-snmp then count allow-snmp
+set firewall family inet filter protect-re term allow-snmp then accept
+set firewall family inet filter protect-re term allow-ip-fragments-limit-1 from is-fragment
+set firewall family inet filter protect-re term allow-ip-fragments-limit-1 then policer ip-frag-policer
+set firewall family inet filter protect-re term allow-ip-fragments-limit-1 then count allow-ip-frag
+set firewall family inet filter protect-re term allow-ip-fragments-limit-1 then accept
+set firewall family inet filter protect-re term allow-icmp from icmp-type echo-request
+set firewall family inet filter protect-re term allow-icmp from icmp-type echo-reply
+set firewall family inet filter protect-re term allow-icmp from icmp-type unreachable
+set firewall family inet filter protect-re term allow-icmp from icmp-type time-exceeded
+set firewall family inet filter protect-re term allow-icmp from icmp-type source-quench
+set firewall family inet filter protect-re term allow-icmp then policer icmp-policer
+set firewall family inet filter protect-re term allow-icmp then count allow-icmp
+set firewall family inet filter protect-re term allow-icmp then accept
+set firewall family inet filter protect-re term allow-tcp-established from protocol tcp
+set firewall family inet filter protect-re term allow-tcp-established from source-port bgp
+set firewall family inet filter protect-re term allow-tcp-established from source-port ssh
+set firewall family inet filter protect-re term allow-tcp-established from source-port 33012
+set firewall family inet filter protect-re term allow-tcp-established from tcp-established
+set firewall family inet filter protect-re term allow-tcp-established then count allow-tcp-established
+set firewall family inet filter protect-re term allow-tcp-established then accept
+set firewall family inet filter protect-re term allow-rest then policer allow-rest-policer
+set firewall family inet filter protect-re term allow-rest then count allow-rest
+set firewall family inet filter protect-re term allow-rest then accept
+deactivate firewall family inet filter protect-re term allow-rest
+set firewall family inet filter protect-re term deny-all then count deny-all
+set firewall family inet filter protect-re term deny-all then discard
+set firewall policer allow-rest-policer if-exceeding bandwidth-limit 5m
+set firewall policer allow-rest-policer if-exceeding burst-size-limit 500k
+set firewall policer allow-rest-policer then discard
+set firewall policer icmp-policer if-exceeding bandwidth-limit 1m
+set firewall policer icmp-policer if-exceeding burst-size-limit 100k
+set firewall policer icmp-policer then discard
+set firewall policer ip-frag-policer if-exceeding bandwidth-limit 1m
+set firewall policer ip-frag-policer if-exceeding burst-size-limit 100k
+set firewall policer ip-frag-policer then discard
+set firewall policer mcast-policer if-exceeding bandwidth-limit 5m
+set firewall policer mcast-policer if-exceeding burst-size-limit 500k
+set firewall policer mcast-policer then discard
+set firewall policer ntp-policer if-exceeding bandwidth-limit 1m
+set firewall policer ntp-policer if-exceeding burst-size-limit 100k
+set firewall policer ntp-policer then discard
+set firewall policer snmp-policer if-exceeding bandwidth-limit 3m
+set firewall policer snmp-policer if-exceeding burst-size-limit 300k
+set firewall policer snmp-policer then discard
+set firewall policer ssh-policer if-exceeding bandwidth-limit 3m
+set firewall policer ssh-policer if-exceeding burst-size-limit 300k
+set firewall policer ssh-policer then discard
+set firewall policer vrrp-policer if-exceeding bandwidth-limit 1m
+set firewall policer vrrp-policer if-exceeding burst-size-limit 100k
+set firewall policer vrrp-policer then discard
+set routing-options autonomous-system 65006.16011
+set routing-options autonomous-system asdot-notation
+set routing-options forwarding-table export pplb
+set protocols iccp local-ip-addr 192.168.250.1
+set protocols iccp peer 192.168.250.2 session-establishment-hold-time 300
+set protocols iccp peer 192.168.250.2 redundancy-group-id-list 1
+set protocols iccp peer 192.168.250.2 backup-liveness-detection backup-peer-ip 10.120.3.31
+set protocols iccp peer 192.168.250.2 liveness-detection minimum-interval 1000
+set protocols bgp group supercore type external
+set protocols bgp group supercore export advertise_direct
+set protocols bgp group supercore peer-as 65006.0
+set protocols bgp group supercore neighbor 10.120.9.0
+set protocols bgp group supercore neighbor 10.120.9.2
+set protocols bgp group supercore neighbor 10.120.9.4
+set protocols bgp group supercore neighbor 10.120.9.6
+set protocols bgp group peer_core type internal
+set protocols bgp group peer_core export nhs
+set protocols bgp group peer_core neighbor 10.120.3.3
+set protocols bgp group fw type external
+set protocols bgp group fw export advertise_default_only
+set protocols bgp group fw peer-as 65006.16021
+set protocols bgp group fw neighbor 10.120.3.4
+set protocols bgp mtu-discovery
+set protocols bgp log-updown
+set protocols bgp multipath
+set protocols bgp bfd-liveness-detection minimum-interval 1000
+set protocols bgp bfd-liveness-detection multiplier 3
+deactivate protocols bgp
+set protocols ospf area 10.120.16.0 stub default-metric 10
+set protocols ospf area 10.120.16.0 stub no-summaries
+set protocols ospf area 10.120.16.0 interface irb.10 metric 15
+set protocols ospf area 10.120.16.0 interface irb.10 priority 100
+set protocols ospf area 10.120.16.0 interface irb.10 bfd-liveness-detection minimum-interval 1000
+set protocols ospf area 10.120.16.0 interface lo0.0 passive
+set protocols ospf area 10.120.16.0 interface irb.250 passive
+set protocols ospf area 10.120.16.0 interface irb.251 passive
+set protocols ospf area 10.120.16.0 interface irb.252 passive
+set protocols ospf area 10.120.16.0 interface irb.217 passive
+set protocols ospf area 10.120.16.0 interface irb.218 passive
+set protocols ospf area 10.120.16.0 interface irb.258
+set protocols ospf area 10.120.16.0 interface irb.259 passive
+set protocols ospf area 10.120.16.0 interface irb.260 passive
+set protocols ospf area 10.120.16.0 interface irb.261 passive
+set protocols ospf area 10.120.16.0 interface et-0/0/30.0 interface-type p2p
+set protocols ospf area 10.120.16.0 interface et-0/0/30.0 metric 10
+set protocols ospf area 10.120.16.0 interface et-0/0/31.0 interface-type p2p
+set protocols ospf area 10.120.16.0 interface et-0/0/31.0 metric 20
+set protocols ospf area 10.120.16.0 interface irb.262 passive
+set protocols ospf reference-bandwidth 100g
+set protocols lldp port-id-subtype interface-name
+set protocols lldp port-description-type interface-description
+set protocols lldp interface all
+set protocols lldp-med interface all
+set protocols igmp-snooping vlan default
+set protocols igmp-snooping vlan all
+set protocols rstp bridge-priority 0
+set protocols rstp system-identifier a4:e1:1a:d8:0b:c8
+set protocols rstp interface ae0 disable
+set protocols rstp interface ae10
+set protocols rstp interface ae11
+set protocols rstp interface ae12
+set protocols rstp interface ae13
+set protocols rstp interface ae14
+set protocols rstp interface ae15
+set protocols rstp interface ae16
+set protocols rstp interface ae17
+set protocols rstp interface ae18
+set protocols rstp interface ae19
+set protocols rstp interface ae30
+set protocols rstp interface ae31
+set switch-options service-id 1
+set vlans default vlan-id 1
+set vlans v10 description internal
+set vlans v10 vlan-id 10
+set vlans v10 l3-interface irb.10
+set vlans v100 description infra-services
+set vlans v100 vlan-id 100
+set vlans v11 description iccp-com
+set vlans v11 vlan-id 11
+set vlans v11 l3-interface irb.11
+set vlans v200 description mfg-body
+set vlans v200 vlan-id 200
+set vlans v201 description mfg-paint
+set vlans v201 vlan-id 201
+set vlans v202 description mfg-ga
+set vlans v202 vlan-id 202
+set vlans v203 description mfg-material
+set vlans v203 vlan-id 203
+set vlans v204 description mfg-factory
+set vlans v204 vlan-id 204
+set vlans v205 description facilities
+set vlans v205 vlan-id 205
+set vlans v206 description mfg-battery
+set vlans v206 vlan-id 206
+set vlans v207 description services-outbound
+set vlans v207 vlan-id 207
+set vlans v208 description misc
+set vlans v208 vlan-id 208
+set vlans v209 description services-direct-bidi
+set vlans v209 vlan-id 209
+set vlans v210 description services-direct-in
+set vlans v210 vlan-id 210
+set vlans v211 description jumpbox-vm
+set vlans v211 vlan-id 211
+set vlans v212 description mfg-cae
+set vlans v212 vlan-id 212
+set vlans v213 description misc
+set vlans v213 vlan-id 213
+set vlans v214 description misc
+set vlans v214 vlan-id 214
+set vlans v215 description warpdrv-sdlc
+set vlans v215 vlan-id 215
+set vlans v216 description warpdrv-prd
+set vlans v216 vlan-id 216
+set vlans v217 description 217.eaa-connector.srv01.server.pvg03
+set vlans v217 vlan-id 217
+set vlans v217 l3-interface irb.217
+set vlans v218 description 218.eaa-connector.srv01.server.pvg03
+set vlans v218 vlan-id 218
+set vlans v218 l3-interface irb.218
+set vlans v220 description rd-server
+set vlans v220 vlan-id 220
+set vlans v221 description voice-mgmt
+set vlans v221 vlan-id 221
+set vlans v236 description misc
+set vlans v236 vlan-id 236
+set vlans v237 description misc
+set vlans v237 vlan-id 237
+set vlans v238 description misc
+set vlans v238 vlan-id 238
+set vlans v239 description misc
+set vlans v239 vlan-id 239
+set vlans v240 description hsm-zone
+set vlans v240 vlan-id 240
+set vlans v241 description issuing-ca-zone
+set vlans v241 vlan-id 241
+set vlans v242 description ca-cert-web-server
+set vlans v242 vlan-id 242
+set vlans v243 description jump-misc
+set vlans v243 vlan-id 243
+set vlans v244 description ocsp-server
+set vlans v244 vlan-id 244
+set vlans v245 description pki
+set vlans v245 vlan-id 245
+set vlans v246 description pki-mgmt
+set vlans v246 vlan-id 246
+set vlans v247 description hsm
+set vlans v247 vlan-id 247
+set vlans v248 description hsm-mgmt
+set vlans v248 vlan-id 248
+set vlans v250 description f5-services-vip
+set vlans v250 vlan-id 250
+set vlans v250 l3-interface irb.250
+set vlans v251 description f5-services-local
+set vlans v251 vlan-id 251
+set vlans v251 l3-interface irb.251
+set vlans v252 description f5-services-remote
+set vlans v252 vlan-id 252
+set vlans v252 l3-interface irb.252
+set vlans v253 description f5-services-vip-restricted
+set vlans v253 vlan-id 253
+set vlans v255 vlan-id 255
+set vlans v256 vlan-id 256
+set vlans v257 vlan-id 257
+set vlans v258 description nvr-server-sr01
+set vlans v258 vlan-id 258
+set vlans v259 description sr01-data-protect
+set vlans v259 vlan-id 259
+set vlans v259 l3-interface irb.259
+set vlans v260 vlan-id 260
+set vlans v260 l3-interface irb.260
+set vlans v261 description BI
+set vlans v261 vlan-id 261
+set vlans v261 l3-interface irb.261
+set vlans v262 description infra-stg
+set vlans v262 vlan-id 262
+set vlans v262 l3-interface irb.262
+set vlans v82 description esx-mgmt
+set vlans v82 vlan-id 82

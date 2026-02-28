@@ -1,0 +1,72 @@
+根据下面的步骤，写一个采集vmhost log /coredump的py脚本：
+
+
+1. ssh登录设备,提示输入设备IP，用户名（默认labroot），密码（默认lab123）
+
+登录设备后，给出下面的菜单选择
+1.Collecting vmhost log 
+2.Collecting vmhost coredump
+3.Collecting vmhost log and coredump
+
+选择1：单独执行后面的步骤2后退出脚本
+选择2：单独执行后面的步骤3后退出脚本
+选择3：先执行步骤2，后执行步骤3后退出脚本
+
+2. 按照下面步骤采集vmhost log，如果命令执行错误，打印相关错误并退出脚本：
+2.1. Log in to Junos OS shell.
+
+user@router-re0> start shell
+% su
+Password:
+root@router-re0:~#
+2.2. Log in to VMhost.
+
+root@router-re0:/var/log # vhclient -s
+Last login: Mon Jan 25 22:26:19 2024 from 192.168.1.2
+
+2.3. Tar and zip the content.
+
+root@router-re0-node:~# cd /var/log
+root@router-re0-node:~# tar -zcvf <hostname>-re0-vmhost-varlog-<date>.tgz /var/log/*   <<<这里hostname和日期用实际值替代
+示例如下，这里hostname是router，日期是2024年1月25日：
+root@router-re0-node:~# tar -zcvf router-re0-vmhost-varlog-20240125.tgz /var/log/*
+
+2.4. You can directly copy the host logs, collected in Step (2.3.) above, from the CLI by using the following commands:
+
+user@router-re0> request vmhost file-copy from-jnode <hostname>-re0-vmhost-varlog-<date>.tgz to-vjunos /var/tmp log
+user@router-re0> file list /var/tmp/re0-vmhost*
+/var/tmp/re0-vmhost-var-log-20240125.tgz
+
+Note:
+To copy the file by using the above request vmhost command, make sure the zip file location is /var/log/ , which is done in Step 2.3.
+After the file is copied out, remove it from /var/log:
+
+root@router-re0-node:~# rm -f /var/log/re0-vmhost-var-log-20240125.tgz
+
+如果2.4步执行成功
+2.5. (option) Copy the file to the Junos OS /var/tmp . (Only need this step if above step 2.4 does not work.)
+
+PTX10K systems:
+
+root@PTX10008-re0-node:~# scp /var/tmp/re0-vmhost-var-log-20240125.tgz root@192.168.1.1:/var/tmp/
+Password:
+re0-vmhost-var-log-20240125.tgz                        100% 9900KB  86.7MB/s   00:00 100%  157MB  34.6MB/s   00:04   
+
+MX systems & PTX5K systems:
+
+root@mx2008-re0-node:~# scp /var/log/re0-vmhost-var-log-20240125.tgz root@192.168.1.1:/var/tmp/
+Password:
+re0-vmhost-var-log-20240125.tgz                        100% 9900KB  86.7MB/s   00:00 100%  157MB  34.6MB/s   00:04  
+Note:
+In order perform the file copy operation from VMHost to Junos OS (Step 5,) possible users should be allowed to log in to the router via SSH as " root ":
+
+[edit]
++  system {
++      services {
++          ssh {
++              root-login allow;
++          }
++      }
++  }
+
+Now the files can be directly copied from the Routing Engine to any local host by using FTP, SCP, J-Web, or a mounted USB device.
